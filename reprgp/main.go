@@ -28,7 +28,7 @@ func (self RectTerminal) Arity() int {
 }
 
 func (self RectTerminal) Run(p ...gogp.Primitive) gogp.Primitive {
-	return self
+	return nil
 }
 
 func (self RectFunctional) IsFunctional() bool {
@@ -39,7 +39,7 @@ func (self RectFunctional) Arity() int {
 	return 2
 }
 
-func (self RectFunctional) Run(p ...gogp.Primitive) gogp.Primitive {
+func (self RectFunctional) Run(p ...gogp.Primitive) RectTerminal {
 	return self(p[0].(RectTerminal), p[1].(RectTerminal))
 }
 
@@ -96,32 +96,32 @@ func TriSplit(top, left, center, right TriTerminal) TriTerminal {
 	}
 }
 
-/***********************
- * Genetic algorithms
- **********************/
+/***********************************
+ * Genetic Operators
+ **********************************/
 
-type ParamError struct {
-	what string
+type Individual interface {
+	Evaluate()          // Evaluate and cache fitness
+	FitnessValid() bool // True if fitness is valid
+	Initialize()        // Be initializable
+	fmt.Stringer        // Be convertible to string
 }
 
-func (e *ParamError) Error() string {
-	return e.what
+type Population interface {
+	Evaluate() int                      // Evaluate fitnesses, return evaluated ones
+	Initialize(n int)                   // Build N individuals
+	Select(n int) ([]Individual, error) // Select N individuals
+	BestIndividual() *Individual        // Return the best individual in current population
 }
 
-// A specific type of individual
-type BoolIndividual10 struct {
-	genotype   [10]bool
-	fitness    gogp.Fitness
-	fitIsValid bool
+func main() {
+	seed := flag.Int64("seed", time.Now().UTC().UnixNano(), "Seed for RNG")
+	flag.Parse()
+	fmt.Println("Seed used", *seed)
+	rand.Seed(*seed)
 }
 
-type BoolPopulation10 struct {
-	best            *BoolIndividual10
-	pop             []BoolIndividual10
-	tournSize       int
-	gogp.MinProblem // Minimization problem (promoted)
-}
-
+/*
 func (ind *BoolIndividual10) Crossover(pCross float64, mate *BoolIndividual10) {
 	// Crossover is probabilistic
 	if rand.Float64() >= pCross {
@@ -235,15 +235,15 @@ func (pop *BoolPopulation10) BestIndividual() *BoolIndividual10 {
 }
 
 func White(x1, x2, y1, y2 float64, img *imgut.Image) {
-	RectFiller(1)(x1, x2, y1, y2, img)
+	gogp.RectFiller(1)(x1, x2, y1, y2, img)
 }
 
 func Gray(x1, x2, y1, y2 float64, img *imgut.Image) {
-	RectFiller(0.5)(x1, x2, y1, y2, img)
+	gogp.RectFiller(0.5)(x1, x2, y1, y2, img)
 }
 
 func Black(x1, x2, y1, y2 float64, img *imgut.Image) {
-	RectFiller(0)(x1, x2, y1, y2, img)
+	gogp.RectFiller(0)(x1, x2, y1, y2, img)
 }
 
 func main() {
@@ -255,10 +255,6 @@ func main() {
 	pMut := flag.Float64("pMut", 0.1, "Bit mutation probability")
 
 	flag.Parse()
-
-	//	*seed = 1442336044574955058
-	//	*seed = 1442353043560344044 // a seed with a grow of height 2
-	// *seed = 1442591264978496417 // Produces a wrong crossover
 
 	fmt.Println("Seed used", *seed)
 	rand.Seed(*seed)
@@ -285,13 +281,13 @@ func main() {
 	fmt.Println("Stica", img)
 
 	// Draw fractal rect split in bottom-left
-	rTrue, rFalse := RectFiller(1), RectFiller(0)
-	drawRect := VSplit(rTrue, HSplit(rFalse, VSplit(rFalse, rTrue)))
+	rTrue, rFalse := gogp.RectFiller(1), gogp.RectFiller(0)
+	drawRect := gogp.VSplit(rTrue, gogp.HSplit(rFalse, gogp.VSplit(rFalse, rTrue)))
 	drawRect(0, 100, 100, 200, img)
 
 	// Draw fractal tri in bottom-right
-	tTrue, tFalse := TriFiller(1), TriFiller(0)
-	drawTri := TriSplit(tTrue, tTrue, TriSplit(tFalse, tFalse, tTrue, tFalse), tTrue)
+	tTrue, tFalse := gogp.TriFiller(1), gogp.TriFiller(0)
+	drawTri := gogp.TriSplit(tTrue, tTrue, gogp.TriSplit(tFalse, tFalse, tTrue, tFalse), tTrue)
 	drawTri(100, 200, 200, img)
 
 	// Get image data
@@ -301,78 +297,28 @@ func main() {
 	img.WritePNG("test_img.png")
 
 	// Build some trees to test
-	functionals, terminals := []gogp.Primitive{RectFunctional(VSplit), RectFunctional(HSplit)}, []gogp.Primitive{RectTerminal(White), RectTerminal(Gray), RectTerminal(Black)}
+	functionals, terminals := []gogp.Functional{gogp.VSplit, gogp.HSplit}, []gogp.Terminal{White, Gray, Black}
 
-	gTree := gogp.MakeTreeGrow(4, functionals, terminals)
-	fmt.Println("Grown tree:\n", gTree.PrettyPrint())
-	cTree := gogp.CompileTree(gTree).(RectTerminal)
+	gTree := gogp.MakeTreeGrow(4, 2, functionals, terminals)
+	fmt.Println("Grown tree:", gTree)
+	cTree := gogp.CompileTree(gTree)
 	cTree(0, 0, float64(img.W), float64(img.H), img)
-
-	enNodes, enDepth, enHeight := gTree.Enumerate()
-	fmt.Println("-- Grown tree nodes, depth and heights", enNodes, enDepth, enHeight)
 
 	img.WritePNG("test_img_grow.png")
 
-	fTree := gogp.MakeTreeFull(3, functionals, terminals)
-	fmt.Println("Full tree:\n", fTree.PrettyPrint())
-	cTree = gogp.CompileTree(fTree).(RectTerminal)
+	fTree := gogp.MakeTreeFull(4, 2, functionals, terminals)
+	fmt.Println("Full tree:", fTree)
+	cTree = gogp.CompileTree(fTree)
 	cTree(0, 0, float64(img.W), float64(img.H), img)
 
-	enNodes, enDepth, enHeight = fTree.Enumerate()
-	fmt.Println("-- Full tree nodes, depth and heights", enNodes, enDepth, enHeight)
 	img.WritePNG("test_img_full.png")
 
-	hTree := gogp.MakeTreeHalfAndHalf(4, functionals, terminals)
-	fmt.Println("HalfAndHalf tree:\n", hTree.PrettyPrint())
-
-	fmt.Println(hTree.GraphvizDot("hTree", hTree.Colorize(1, 0)))
-
-	cTree = gogp.CompileTree(hTree).(RectTerminal)
+	hTree := gogp.MakeTreeHalfAndHalf(4, 2, functionals, terminals)
+	fmt.Println("HalfAndHalf tree:", hTree)
+	cTree = gogp.CompileTree(hTree)
 	cTree(0, 0, float64(img.W), float64(img.H), img)
 
 	img.WritePNG("test_img_hnh.png")
-
-	fmt.Println("Testing mutation on hnh tree")
-	mutation := gogp.MakeTreeNodeMutation(functionals, terminals)
-	mutation(hTree)
-	fmt.Println("Mutation 1\n", hTree.PrettyPrint())
-	mutation(hTree)
-	fmt.Println("Mutation 2\n", hTree.PrettyPrint())
-
-	xoD4 := gogp.MakeTree1pCrossover(4)
-	xoD5 := gogp.MakeTree1pCrossover(5)
-	xoD6 := gogp.MakeTree1pCrossover(6)
-
-	t1 := gogp.MakeTreeFull(4, functionals, terminals)
-	t2 := gogp.MakeTreeFull(4, functionals, terminals)
-
-	//enNodes, enDepth, enHeight = t1.Enumerate()
-	//fmt.Println("-- Full tree 1 enums", enNodes, enDepth, enHeight)
-
-	//enNodes, enDepth, enHeight = t1.Enumerate()
-	//fmt.Println("-- Full tree 2 enums", enNodes, enDepth, enHeight)
-
-	// Build a joint map of colors to be used for both threes
-	var t1t2Cols map[*gogp.Node][]float32
-	t1t2Cols = t1.Colorize(1.0, 0)
-	for k, v := range t2.Colorize(0.5, 0) {
-		t1t2Cols[k] = v
-	}
-
-	fmt.Println("Testing crossover with trees")
-	t1.GraphvizDot("xoSt1", t1t2Cols)
-	t2.GraphvizDot("xoSt2", t1t2Cols)
-	xoD4(t1, t2)
-	t1.GraphvizDot("xoD4t1", t1t2Cols)
-	t2.GraphvizDot("xoD4t2", t1t2Cols)
-	xoD5(t1, t2)
-	t1.GraphvizDot("xoD5t1", t1t2Cols)
-	t2.GraphvizDot("xoD5t2", t1t2Cols)
-	xoD6(t1, t2)
-	t1.GraphvizDot("xoD6t1", t1t2Cols)
-	t2.GraphvizDot("xoD6t2", t1t2Cols)
-
-	// Test crossover
 	return
 
 	// Create population
@@ -411,3 +357,4 @@ func main() {
 
 	fmt.Println("Best individual", pop.BestIndividual())
 }
+*/
