@@ -1,7 +1,6 @@
 package gogp
 
 import (
-	"fmt"
 	"testing"
 )
 
@@ -47,7 +46,6 @@ func Constant2(c int) Terminal2 {
 }
 
 func Sum(args ...Primitive) Primitive {
-	fmt.Println("Running Run for the Sum, got terminals", args, "I am", Sum)
 	return Terminal1(func(x int) int {
 		return args[0].(Terminal1)(x) + args[1].(Terminal1)(x)
 	})
@@ -122,9 +120,9 @@ func mt(p Primitive, children ...*Node) *Node {
 }
 
 func TestEvaluation(t *testing.T) {
-	// Explicitly make a tree: 1 + |0 - x|
+	// Explicitly make trees to test
 	zero, one, id := Terminal1(Constant1(0)), Terminal1(Constant1(1)), Terminal1(Identity1)
-	sum, abs, sub := Functional1(Sum), Functional1(Abs), Functional1(Sub)
+	sum, abs, sub := Functional2(Sum), Functional1(Abs), Functional2(Sub)
 	_, _, _, _, _, _ = zero, one, id, sum, abs, sub
 	var tZero, tOne, tId *Node = mt(zero), mt(one), mt(id) //mt(sum, mt(one), mt(abs, mt(sub, mt(zero), mt(id))))
 	//	var tOne *Node = mt(one)
@@ -152,7 +150,45 @@ func TestEvaluation(t *testing.T) {
 	tSum := mt(sum, tOne, tOne)
 	eSum := CompileTree(tSum).(Terminal1)
 
+	tSub := mt(sub, tZero, tId)
+	eSub := CompileTree(tSub).(Terminal1)
+
+	tAbs := mt(abs, tId)
+	eAbs := CompileTree(tAbs).(Terminal1)
+
 	if v := eSum(-1); v != 2 {
 		t.Error("expression 'Sum(1, 1)' should have value 2 but had", v)
+	}
+	if v := eSub(0); v != 0 {
+		t.Error("expression 'Sub(0, 0)' should have value 0 but had", v)
+	}
+	if v := eSub(2); v != -2 {
+		t.Error("expression 'Sub(0, -2)' should have value -2 but had", v)
+	}
+	if v := eAbs(42); v != 42 {
+		t.Error("expression 'Abs(42)' should have value 42 but had", v)
+	}
+	if v := eAbs(-42); v != 42 {
+		t.Error("expression 'Abs(-42)' should have value 42 but had", v)
+	}
+
+	// Compound expression, arity 1 and 2 mixed   a tree: 2 + |0 - x|
+	tFun := mt(sum, tSum, mt(abs, tSub))
+	eFun := CompileTree(tFun).(Terminal1)
+
+	if v := eFun(1); v != 3 {
+		t.Error("expression 'Sum(Sum(1, 1), Abs(Sub(0, 1)))' should have value 3 but had", v)
+	}
+	if v := eFun(-1); v != 3 {
+		t.Error("expression 'Sum(Sum(1, 1), Abs(Sub(0, -1)))' should have value 3 but had", v)
+	}
+	if v := eFun(2); v != 4 {
+		t.Error("expression 'Sum(Sum(1, 1), Abs(Sub(0, 2)))' should have value 4 but had", v)
+	}
+	if v := eFun(-4); v != 6 {
+		t.Error("expression 'Sum(Sum(1, 1), Abs(Sub(0, -4)))' should have value 6 but had", v)
+	}
+	if v := eFun(0); v != 2 {
+		t.Error("expression 'Sum(Sum(1, 1), Abs(Sub(0, 0)))' should have value 2 but had", v)
 	}
 }
