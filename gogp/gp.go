@@ -1,3 +1,27 @@
+/*
+Package gogp provides the foundation to use Genetic Programming (GP) in Go.
+
+The package provides basic functions and methods to implement a GP system, such as:
+
+- Node mutation
+
+- One point crossover
+
+The code is organized around trees, therefore only tree-like structures are admitted.
+
+To use gogp, you have to create the primitives (functionals and terminals) that will
+compose your solutions.
+
+1. Create a type for terminals: this type usually identifies the number of variables
+that you are using as input (i.e. how many input variables do you have?)
+
+2. Create a type for every functional group that you are about to use: each group is
+characterized by the same number of parameters (arity). For example, if you use
+unary and binary functionals, you need two types.
+
+3. Implement your operators.
+
+*/
 package gogp
 
 import (
@@ -128,6 +152,7 @@ func (root *Node) Colorize(hue, hDev float32) map[*Node][]float32 {
 	return colors
 }
 
+// Prints the tree using a nice indentation
 func (root *Node) PrettyPrint() string {
 	var ind func(r *Node, d int, tabStr string) string
 	ind = func(r *Node, d int, tabStr string) string {
@@ -144,6 +169,9 @@ func (root *Node) PrettyPrint() string {
 	return ind(root, 0, "    ")
 }
 
+// Produces a graph for the tree, using graphviz dot, saving the graph
+// in the file <name>.png. If a color map (generated with Colorize) is
+// provided, the nodes will be colored
 func (root *Node) GraphvizDot(name string, hsvColors map[*Node][]float32) string {
 	// Function to build edges
 	var ind func(parent, r *Node, tabStr string) string
@@ -223,6 +251,7 @@ func makeTree(depth, arity int, funcs, terms []Primitive, strategy func(int, int
 	}
 }
 
+// Builds a tree using the grow method
 func MakeTreeGrow(maxH int, funcs, terms []Primitive) *Node {
 	growStrategy := func(depth, nFuncs, nTerms int) (isFunc bool, k int) {
 		if depth == 0 {
@@ -240,6 +269,7 @@ func MakeTreeGrow(maxH int, funcs, terms []Primitive) *Node {
 	return makeTree(maxH, arity, funcs, terms, growStrategy)
 }
 
+// Builds a tree using the full method
 func MakeTreeFull(maxH int, funcs, terms []Primitive) *Node {
 	fullStrategy := func(depth, nFuncs, nTerms int) (isFunc bool, k int) {
 		if depth == 0 {
@@ -252,6 +282,7 @@ func MakeTreeFull(maxH int, funcs, terms []Primitive) *Node {
 	return makeTree(maxH, arity, funcs, terms, fullStrategy)
 }
 
+// Make a tree using the half and half method.
 // It's not the ramped version: it just uses grow or full with 50% chances
 func MakeTreeHalfAndHalf(maxH int, funcs, terms []Primitive) *Node {
 	if rand.Intn(2) == 0 {
@@ -261,6 +292,8 @@ func MakeTreeHalfAndHalf(maxH int, funcs, terms []Primitive) *Node {
 	}
 }
 
+// Compiles a tree returning a primitive, resulting
+// from the execution of the Run method
 func CompileTree(root *Node) Primitive {
 	if root.value.IsFunctional() {
 		// If it's a functional, compile each children and return
@@ -273,7 +306,7 @@ func CompileTree(root *Node) Primitive {
 		}
 		return root.value.Run(terms...)
 	} else {
-		return root.value
+		return root.value.Run()
 	}
 }
 
@@ -305,7 +338,7 @@ func (root *Node) Size() int {
 }
 
 // Visit the tree and transform it to a slice of nodes, and a slice for their depths and heights
-// FIXME this can be (partially) avoided by usind directly slices to store the tree (using arity)
+// BUG(akiross) this can be (partially) avoided by usind directly slices to store the tree (using arity)
 func (root *Node) Enumerate() ([]*Node, []int, []int) {
 	tree := make([]*Node, 1)
 	dtree := make([]int, 1) // Depth of a node (node-to-root)
@@ -313,7 +346,7 @@ func (root *Node) Enumerate() ([]*Node, []int, []int) {
 	tree[0] = root
 	dtree[0] = 0
 	var chhe []int // Storage for children heights
-	// TODO I think this could be made faster by joining the appends in a single loop
+	// BUG(akiross) I think this could be made faster by joining the appends in a single loop
 	for i := 0; i < len(root.children); i++ {
 		chtr, chde, chhe2 := root.children[i].Enumerate()
 		// Add 1 to the depth of the child
