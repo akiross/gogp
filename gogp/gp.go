@@ -263,13 +263,16 @@ func MakeTreeHalfAndHalf(maxH int, funcs, terms []Primitive) *Node {
 
 func CompileTree(root *Node) Primitive {
 	if root.value.IsFunctional() {
+		fmt.Println("Compiling functional node with", len(root.children), "children")
 		// If it's a functional, compile each children and return
 		terms := make([]Primitive, len(root.children))
 		for i := 0; i < len(root.children); i++ {
 			terms[i] = CompileTree(root.children[i])
 		}
+		fmt.Println("Calling Run with", len(terms), "terminals", terms, "the value is", root.value)
 		return root.value.Run(terms...)
 	} else {
+		fmt.Println("Compiling terminal node")
 		return root.value
 	}
 }
