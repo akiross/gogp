@@ -65,6 +65,15 @@ func (root *Node) String() string {
 	}
 }
 
+// Full copy of the tree
+func (root *Node) Copy() *Node {
+	childr := make([]*Node, len(root.children))
+	for i := range root.children {
+		childr[i] = root.children[i].Copy()
+	}
+	return &Node{root.value, childr}
+}
+
 // Enumerate the path of the nodes, where the path is the
 // number of the node in parent's children up to the root
 // e.g. leftmost node in a binary full tree with depth 4

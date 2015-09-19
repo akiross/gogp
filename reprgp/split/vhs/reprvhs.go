@@ -36,7 +36,7 @@ func (self Functional) Run(p ...gogp.Primitive) gogp.Primitive {
 }
 
 // Buils a Terminal that fills the entire area with given color
-func RectFiller(col ...float64) Terminal {
+func Filler(col ...float64) Terminal {
 	return func(x1, y1, x2, y2 float64, img *imgut.Image) {
 		img.FillRect(x1, y1, x2, y2, col...)
 	}

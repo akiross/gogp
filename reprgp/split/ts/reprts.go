@@ -34,13 +34,13 @@ func (self Functional) Run(p ...gogp.Primitive) gogp.Primitive {
 }
 
 // Return a terminal that fills the entire triangle with given color
-func TriFiller(col ...float64) Terminal {
+func Filler(col ...float64) Terminal {
 	return func(x1, x2, y float64, img *imgut.Image) {
 		img.FillTriangle(x1, x2, y, col...)
 	}
 }
 
-func TriSplit(top, left, center, right Terminal) Terminal {
+func Split(top, left, center, right Terminal) Terminal {
 	return func(x1, x2, y float64, img *imgut.Image) {
 		// Split the triangle in 4 parts
 		cx1, cxm, cx2 := x1+0.25*(x2-x1), x1+0.5*(x2-x1), x1+0.75*(x2-x1)

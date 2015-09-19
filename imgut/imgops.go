@@ -24,25 +24,46 @@ type Image struct {
 	Surf       *C.struct__cairo_surface // Image data
 	Ctx        *C.struct__cairo         // Context for drawing
 	W, H       int                      // Image size
-	colorSpace ColorSpace               // What colors are we considering
+	ColorSpace ColorSpace               // What colors are we considering
 }
 
 // Create an image of the given size
 func Create(w, h int, mode ColorSpace) *Image {
 	var img Image
-	var fmt C.cairo_format_t
+	var format C.cairo_format_t
 	switch mode {
 	case MODE_RGB, MODE_G8:
-		fmt = C.CAIRO_FORMAT_RGB24
+		format = C.CAIRO_FORMAT_RGB24
 	case MODE_RGBA:
-		fmt = C.CAIRO_FORMAT_ARGB32
+		format = C.CAIRO_FORMAT_ARGB32
 	default:
-		fmt = C.CAIRO_FORMAT_A8
+		format = C.CAIRO_FORMAT_A8
 	}
-	img.colorSpace = mode
-	img.Surf = C.cairo_image_surface_create(fmt, C.int(w), C.int(h))
+	img.ColorSpace = mode
+	img.Surf = C.cairo_image_surface_create(format, C.int(w), C.int(h))
 	img.Ctx = C.cairo_create(img.Surf)
 	img.W, img.H = w, h
+	return &img
+}
+
+// Load an image from a PNG file
+func Load(path string) *Image {
+	var img Image
+
+	img.Surf = C.cairo_image_surface_create_from_png(C.CString(path))
+	switch C.cairo_image_surface_get_format(img.Surf) {
+	case C.CAIRO_FORMAT_A8:
+		img.ColorSpace = MODE_A8
+	case C.CAIRO_FORMAT_RGB24:
+		img.ColorSpace = MODE_RGB
+	case C.CAIRO_FORMAT_ARGB32:
+		img.ColorSpace = MODE_RGBA
+	default:
+		fmt.Println("ERROR: Format not supported")
+	}
+	img.W = int(C.cairo_image_surface_get_width(img.Surf))
+	img.H = int(C.cairo_image_surface_get_height(img.Surf))
+	img.Ctx = C.cairo_create(img.Surf)
 	return &img
 }
 
@@ -50,10 +71,10 @@ func (i *Image) SetColor(col ...float64) {
 	var r, g, b, a C.double = 0, 0, 0, 1
 	// Single channel, use alpha
 	if len(col) == 1 {
-		if i.colorSpace == MODE_A8 {
+		if i.ColorSpace == MODE_A8 {
 			// When using alphas, draw on alpha
 			a = C.double(col[0])
-		} else if i.colorSpace == MODE_G8 {
+		} else if i.ColorSpace == MODE_G8 {
 			// When using grayscale, draw RGB
 			r = C.double(col[0])
 			g = r
@@ -118,12 +139,12 @@ type PixelFunc func(x, y int) float64
 // Fill the image evaluating the function over each pixel
 // You can specify one function per channel, or one function for all the channels
 // The values will be normalized
-// TODO this should return an error
+// BUG(akiross) this should return an error
 func (img *Image) FillMath(chanFuncs ...PixelFunc) {
 	nch := len(chanFuncs)
-	// TODO this code introduces checks which may be unnecessary
+	// BUG(akiross) this code introduces checks which may be unnecessary
 	// in production, would be nice to disable this checking
-	switch img.colorSpace {
+	switch img.ColorSpace {
 	case MODE_A8:
 		if nch != 1 {
 			fmt.Println("ERROR! For A8 images is mandatory to use a single chanFunc")
@@ -187,7 +208,7 @@ func (img *Image) FillMath(chanFuncs ...PixelFunc) {
 	byteData := make([]byte, stride*img.H)
 
 	// Depending on format, we copy the data in different ways
-	switch img.colorSpace {
+	switch img.ColorSpace {
 	case MODE_A8:
 		fmt.Println("Copying data for mode A8")
 		const k = 0
@@ -249,42 +270,52 @@ func (i *Image) WritePNG(file string) {
 }
 
 // Get the data of the image for the specified channels
-// TODO this should return an error, instead of printing!
+// BUG(akiross) this should return an error, instead of printing!
 func (img *Image) GetChannels(ch ...int) [][][]byte {
-	// Number of requested channels
+	// Number of requested channels. If none is specified, all are taken
 	nch := len(ch)
 	// Number of existing channels
 	var ech int
 
 	// Verify that format is compatible with the channel request
-	switch img.colorSpace {
-	case MODE_A8:
-		ech = 1
-		if nch != 1 {
-			fmt.Println("ERROR! For MODE_A8 you must require one channel")
+	if true {
+		switch img.ColorSpace {
+		case MODE_A8:
+			ech = 1
+			if nch == 0 {
+				nch = 1
+			} else if nch != 1 {
+				fmt.Println("ERROR! For MODE_A8 you must require one channel")
+				return nil
+			}
+		case MODE_G8:
+			ech = 3
+			if nch == 0 {
+				nch = 3
+			} else if nch != 1 && nch != 3 {
+				fmt.Println("ERROR! For MODE_G8, you may pick 1 or 3 chans!")
+				return nil
+			}
+		case MODE_RGB:
+			ech = 3
+			if nch == 0 {
+				nch = 3
+			} else if nch < 1 || nch > 3 {
+				fmt.Println("ERROR! For MODE_RGB, you may pick 1, 2 or 3 chans")
+				return nil
+			}
+		case MODE_RGBA:
+			ech = 4
+			if nch == 0 {
+				nch = 4
+			} else if nch < 1 || nch > 4 {
+				fmt.Println("ERROR! For MODE_RGBA, you may pick 1, 2, 3 or 4 chans")
+				return nil
+			}
+		default:
+			fmt.Println("ERROR! Unsupported color space", img.ColorSpace)
 			return nil
 		}
-	case MODE_G8:
-		ech = 3
-		if nch != 1 && nch != 3 {
-			fmt.Println("ERROR! For MODE_G8, you may pick 1 or 3 chans!")
-			return nil
-		}
-	case MODE_RGB:
-		ech = 3
-		if nch < 1 || nch > 3 {
-			fmt.Println("ERROR! For MODE_RGB, you may pick 1, 2 or 3 chans")
-			return nil
-		}
-	case MODE_RGBA:
-		ech = 4
-		if nch < 1 || nch > 4 {
-			fmt.Println("ERROR! For MODE_RGBA, you may pick 1, 2, 3 or 4 chans")
-			return nil
-		}
-	default:
-		fmt.Println("ERROR! Unsupported color space", img.colorSpace)
-		return nil
 	}
 
 	// Get the raw data

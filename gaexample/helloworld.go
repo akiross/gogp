@@ -3,98 +3,13 @@ package main
 import (
 	"ale-re.net/phd/gogp"
 	"ale-re.net/phd/imgut"
+	"ale-re.net/phd/reprgp/split/ts"
+	"ale-re.net/phd/reprgp/split/vhs"
 	"flag"
 	"fmt"
 	"math/rand"
 	"time"
 )
-
-/******************
- * Rect functions
- *****************/
-
-// The function that will be called to get a solution
-type RectTerminal func(x1, x2, y1, y2 float64, img *imgut.Image)
-
-// Functionals are internal nodes of a solution tree
-type RectFunctional func(args ...RectTerminal) RectTerminal
-
-func (self RectTerminal) IsFunctional() bool {
-	return false
-}
-
-func (self RectTerminal) Arity() int {
-	return -1 // Not used
-}
-
-func (self RectTerminal) Run(p ...gogp.Primitive) gogp.Primitive {
-	return self
-}
-
-func (self RectFunctional) IsFunctional() bool {
-	return true
-}
-
-func (self RectFunctional) Arity() int {
-	return 2
-}
-
-func (self RectFunctional) Run(p ...gogp.Primitive) gogp.Primitive {
-	return self(p[0].(RectTerminal), p[1].(RectTerminal))
-}
-
-// Buils a Terminal that fills the entire area with given color
-func RectFiller(col ...float64) RectTerminal {
-	return func(x1, y1, x2, y2 float64, img *imgut.Image) {
-		img.FillRect(x1, y1, x2, y2, col...)
-	}
-}
-
-// Returns a terminal that fills the rectangle according to left and right
-func VSplit(args ...RectTerminal) RectTerminal {
-	return func(x1, y1, x2, y2 float64, img *imgut.Image) {
-		xh := (x1 + x2) * 0.5
-		args[0](x1, y1, xh, y2, img)
-		args[1](xh, y1, x2, y2, img)
-	}
-}
-
-func HSplit(args ...RectTerminal) RectTerminal {
-	return func(x1, y1, x2, y2 float64, img *imgut.Image) {
-		yh := (y1 + y2) * 0.5
-		args[0](x1, y1, x2, yh, img)
-		args[1](x1, yh, x2, y2, img)
-	}
-}
-
-/*********************
- * Triangle functions
- ********************/
-
-type TriTerminal func(x1, x2, y float64, img *imgut.Image)
-
-type TriFunctional func(top, left, center, right TriTerminal) TriTerminal
-
-// Return a terminal that fills the entire triangle with given color
-func TriFiller(col ...float64) TriTerminal {
-	return func(x1, x2, y float64, img *imgut.Image) {
-		img.FillTriangle(x1, x2, y, col...)
-	}
-}
-
-func TriSplit(top, left, center, right TriTerminal) TriTerminal {
-	return func(x1, x2, y float64, img *imgut.Image) {
-		// Split the triangle in 4 parts
-		cx1, cxm, cx2 := x1+0.25*(x2-x1), x1+0.5*(x2-x1), x1+0.75*(x2-x1)
-		ty := imgut.TriangleCenterY(x1, x2, y)
-		cy := 0.5 * (ty + y)
-
-		top(cx1, cx2, cy, img)
-		left(x1, cxm, y, img)
-		center(cx2, cx1, cy, img)
-		right(cxm, x2, y, img)
-	}
-}
 
 /***********************
  * Genetic algorithms
@@ -235,15 +150,15 @@ func (pop *BoolPopulation10) BestIndividual() *BoolIndividual10 {
 }
 
 func White(x1, x2, y1, y2 float64, img *imgut.Image) {
-	RectFiller(1)(x1, x2, y1, y2, img)
+	vhs.Filler(1)(x1, x2, y1, y2, img)
 }
 
 func Gray(x1, x2, y1, y2 float64, img *imgut.Image) {
-	RectFiller(0.5)(x1, x2, y1, y2, img)
+	vhs.Filler(0.5)(x1, x2, y1, y2, img)
 }
 
 func Black(x1, x2, y1, y2 float64, img *imgut.Image) {
-	RectFiller(0)(x1, x2, y1, y2, img)
+	vhs.Filler(0)(x1, x2, y1, y2, img)
 }
 
 func main() {
@@ -285,13 +200,13 @@ func main() {
 	fmt.Println("Stica", img)
 
 	// Draw fractal rect split in bottom-left
-	rTrue, rFalse := RectFiller(1), RectFiller(0)
-	drawRect := VSplit(rTrue, HSplit(rFalse, VSplit(rFalse, rTrue)))
+	rTrue, rFalse := vhs.Filler(1), vhs.Filler(0)
+	drawRect := vhs.VSplit(rTrue, vhs.HSplit(rFalse, vhs.VSplit(rFalse, rTrue)))
 	drawRect(0, 100, 100, 200, img)
 
 	// Draw fractal tri in bottom-right
-	tTrue, tFalse := TriFiller(1), TriFiller(0)
-	drawTri := TriSplit(tTrue, tTrue, TriSplit(tFalse, tFalse, tTrue, tFalse), tTrue)
+	tTrue, tFalse := ts.Filler(1), ts.Filler(0)
+	drawTri := ts.Split(tTrue, tTrue, ts.Split(tFalse, tFalse, tTrue, tFalse), tTrue)
 	drawTri(100, 200, 200, img)
 
 	// Get image data
@@ -301,11 +216,11 @@ func main() {
 	img.WritePNG("test_img.png")
 
 	// Build some trees to test
-	functionals, terminals := []gogp.Primitive{RectFunctional(VSplit), RectFunctional(HSplit)}, []gogp.Primitive{RectTerminal(White), RectTerminal(Gray), RectTerminal(Black)}
+	functionals, terminals := []gogp.Primitive{vhs.Functional(vhs.VSplit), vhs.Functional(vhs.HSplit)}, []gogp.Primitive{vhs.Terminal(White), vhs.Terminal(Gray), vhs.Terminal(Black)}
 
 	gTree := gogp.MakeTreeGrow(4, functionals, terminals)
 	fmt.Println("Grown tree:\n", gTree.PrettyPrint())
-	cTree := gogp.CompileTree(gTree).(RectTerminal)
+	cTree := gogp.CompileTree(gTree).(vhs.Terminal)
 	cTree(0, 0, float64(img.W), float64(img.H), img)
 
 	enNodes, enDepth, enHeight := gTree.Enumerate()
@@ -315,7 +230,7 @@ func main() {
 
 	fTree := gogp.MakeTreeFull(3, functionals, terminals)
 	fmt.Println("Full tree:\n", fTree.PrettyPrint())
-	cTree = gogp.CompileTree(fTree).(RectTerminal)
+	cTree = gogp.CompileTree(fTree).(vhs.Terminal)
 	cTree(0, 0, float64(img.W), float64(img.H), img)
 
 	enNodes, enDepth, enHeight = fTree.Enumerate()
@@ -327,7 +242,7 @@ func main() {
 
 	fmt.Println(hTree.GraphvizDot("hTree", hTree.Colorize(1, 0)))
 
-	cTree = gogp.CompileTree(hTree).(RectTerminal)
+	cTree = gogp.CompileTree(hTree).(vhs.Terminal)
 	cTree(0, 0, float64(img.W), float64(img.H), img)
 
 	img.WritePNG("test_img_hnh.png")
@@ -372,7 +287,6 @@ func main() {
 	t1.GraphvizDot("xoD6t1", t1t2Cols)
 	t2.GraphvizDot("xoD6t2", t1t2Cols)
 
-	// Test crossover
 	return
 
 	// Create population
