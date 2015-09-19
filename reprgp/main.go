@@ -1,100 +1,11 @@
 package main
 
 import (
-	"ale-re.net/phd/gogp"
-	"ale-re.net/phd/imgut"
 	"flag"
 	"fmt"
 	"math/rand"
 	"time"
 )
-
-/******************
- * Rect functions
- *****************/
-
-// The function that will be called to get a solution
-type RectTerminal func(x1, x2, y1, y2 float64, img *imgut.Image)
-
-// Functionals are internal nodes of a solution tree
-type RectFunctional func(args ...RectTerminal) RectTerminal
-
-func (self RectTerminal) IsFunctional() bool {
-	return false
-}
-
-func (self RectTerminal) Arity() int {
-	return -1 // Not used
-}
-
-func (self RectTerminal) Run(p ...gogp.Primitive) gogp.Primitive {
-	return nil
-}
-
-func (self RectFunctional) IsFunctional() bool {
-	return true
-}
-
-func (self RectFunctional) Arity() int {
-	return 2
-}
-
-func (self RectFunctional) Run(p ...gogp.Primitive) RectTerminal {
-	return self(p[0].(RectTerminal), p[1].(RectTerminal))
-}
-
-// Buils a Terminal that fills the entire area with given color
-func RectFiller(col ...float64) RectTerminal {
-	return func(x1, y1, x2, y2 float64, img *imgut.Image) {
-		img.FillRect(x1, y1, x2, y2, col...)
-	}
-}
-
-// Returns a terminal that fills the rectangle according to left and right
-func VSplit(args ...RectTerminal) RectTerminal {
-	return func(x1, y1, x2, y2 float64, img *imgut.Image) {
-		xh := (x1 + x2) * 0.5
-		args[0](x1, y1, xh, y2, img)
-		args[1](xh, y1, x2, y2, img)
-	}
-}
-
-func HSplit(args ...RectTerminal) RectTerminal {
-	return func(x1, y1, x2, y2 float64, img *imgut.Image) {
-		yh := (y1 + y2) * 0.5
-		args[0](x1, y1, x2, yh, img)
-		args[1](x1, yh, x2, y2, img)
-	}
-}
-
-/*********************
- * Triangle functions
- ********************/
-
-type TriTerminal func(x1, x2, y float64, img *imgut.Image)
-
-type TriFunctional func(top, left, center, right TriTerminal) TriTerminal
-
-// Return a terminal that fills the entire triangle with given color
-func TriFiller(col ...float64) TriTerminal {
-	return func(x1, x2, y float64, img *imgut.Image) {
-		img.FillTriangle(x1, x2, y, col...)
-	}
-}
-
-func TriSplit(top, left, center, right TriTerminal) TriTerminal {
-	return func(x1, x2, y float64, img *imgut.Image) {
-		// Split the triangle in 4 parts
-		cx1, cxm, cx2 := x1+0.25*(x2-x1), x1+0.5*(x2-x1), x1+0.75*(x2-x1)
-		ty := imgut.TriangleCenterY(x1, x2, y)
-		cy := 0.5 * (ty + y)
-
-		top(cx1, cx2, cy, img)
-		left(x1, cxm, y, img)
-		center(cx2, cx1, cy, img)
-		right(cxm, x2, y, img)
-	}
-}
 
 /***********************************
  * Genetic Operators
