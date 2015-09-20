@@ -2,7 +2,7 @@ package main
 
 import (
 	"ale-re.net/phd/gogp"
-	"ale-re.net/phd/imgut"
+	"ale-re.net/phd/image/cairo/imgut"
 	"ale-re.net/phd/reprgp/split/vhs"
 	"flag"
 	"fmt"

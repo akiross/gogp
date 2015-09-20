@@ -2,7 +2,7 @@ package vhs
 
 import (
 	"ale-re.net/phd/gogp"
-	"ale-re.net/phd/imgut"
+	"ale-re.net/phd/image/cairo/imgut"
 )
 
 // The function that will be called to get a solution
