@@ -1,7 +1,6 @@
 package imgut
 
 // #cgo pkg-config: cairo
-// #cgo LDFLAGS: -lm
 // #include <cairo.h>
 // #include <string.h> // memcpy
 import "C"
@@ -269,6 +268,13 @@ func (i *Image) WritePNG(file string) {
 	C.cairo_surface_write_to_png(i.Surf, C.CString(file))
 }
 
+func PixelDistance(i1, i2 *Image) (rmse float64) {
+	panic("Not Implemented Yet!")
+	rmse = -1
+	return
+}
+
+/*
 // Get the data of the image for the specified channels
 // BUG(akiross) this should return an error, instead of printing!
 func (img *Image) GetChannels(ch ...int) [][][]byte {
@@ -335,3 +341,4 @@ func (img *Image) GetChannels(ch ...int) [][][]byte {
 	}
 	return mtx
 }
+*/

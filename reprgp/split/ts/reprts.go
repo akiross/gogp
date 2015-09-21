@@ -2,7 +2,7 @@ package ts
 
 import (
 	"ale-re.net/phd/gogp"
-	"ale-re.net/phd/image/cairo/imgut"
+	"ale-re.net/phd/image/draw2d/imgut"
 )
 
 type Terminal func(x1, x2, y float64, img *imgut.Image)

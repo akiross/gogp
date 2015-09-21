@@ -243,15 +243,16 @@ func (root *Node) GraphvizDot(name string, hsvColors map[*Node][]float32) string
 	return "" //src
 }
 
-func makeTree(depth, arity int, funcs, terms []Primitive, strategy func(int, int, int) (bool, int)) (root *Node) {
+// strategy is a function that pick a primitive suitable to be placed in the tree, indicating if it's a functional or not, and giving the index of the picked primitive
+func makeTree(depth int, funcs, terms []Primitive, strategy func(int, int, int) (bool, int)) (root *Node) {
 	nFuncs, nTerms := len(funcs), len(terms)
 	nType, k := strategy(depth, nFuncs, nTerms)
 
 	if nType {
 		root = &Node{funcs[k], nil}
-		root.children = make([]*Node, arity)
+		root.children = make([]*Node, funcs[k].Arity())
 		for i := range root.children {
-			root.children[i] = makeTree(depth-1, arity, funcs, terms, strategy)
+			root.children[i] = makeTree(depth-1, funcs, terms, strategy)
 		}
 		return
 	} else {
@@ -274,8 +275,7 @@ func MakeTreeGrow(maxH int, funcs, terms []Primitive) *Node {
 			}
 		}
 	}
-	arity := funcs[0].Arity()
-	return makeTree(maxH, arity, funcs, terms, growStrategy)
+	return makeTree(maxH, funcs, terms, growStrategy)
 }
 
 // Builds a tree using the full method
@@ -287,8 +287,7 @@ func MakeTreeFull(maxH int, funcs, terms []Primitive) *Node {
 			return true, rand.Intn(nFuncs)
 		}
 	}
-	arity := funcs[0].Arity()
-	return makeTree(maxH, arity, funcs, terms, fullStrategy)
+	return makeTree(maxH, funcs, terms, fullStrategy)
 }
 
 // Make a tree using the half and half method.
@@ -312,6 +311,8 @@ func CompileTree(root *Node) Primitive {
 		}
 		if root.value.Arity() != len(terms) {
 			fmt.Println("ERROR! Trying to call a Functional with Arity", root.value.Arity(), "passing", len(terms), "arguments")
+			fmt.Println("Tree is", root)
+			panic(fmt.Sprint("ERROR! Trying to call a Functional with Arity ", root.value.Arity(), " passing ", len(terms), " arguments: ", funcName(root.value)))
 		}
 		return root.value.Run(terms...)
 	} else {
