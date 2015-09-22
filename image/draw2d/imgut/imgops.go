@@ -69,8 +69,6 @@ func Load(path string) (*Image, error) {
 	br := img.Surf.Bounds()
 	img.W, img.H = br.Max.X-br.Min.X, br.Max.Y-br.Min.Y
 
-	fmt.Println("Loading image with model", img.Surf.ColorModel())
-
 	return &img, nil
 }
 

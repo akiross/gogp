@@ -7,6 +7,7 @@ import (
 	"flag"
 	"fmt"
 	"log"
+	"math"
 	"math/rand"
 	"os"
 	"runtime/pprof" // profiling...
@@ -205,7 +206,10 @@ func main() {
 	// Compute the right value of maxDepth: each split divides image in 2
 	// Hence 2^n = 1, 2, 4, 8, 16... is the number of splits we get at depth n
 	// If the image has P pixels, we want to pick the smallest n such that 2^n > P -> n > log_2(P)
-	maxDepth = int(math.Log2(float64(imgTarget.W*imgTarget.H))) + 1
+	logicalDepth := int(math.Log2(float64(imgTarget.W*imgTarget.H))) + 1
+	if logicalDepth < maxDepth {
+		maxDepth = logicalDepth
+	}
 	fmt.Println("For area of", imgTarget.W*imgTarget.H, "pixels, max depth is", maxDepth)
 
 	// Create temporary surface, of same size and mode
