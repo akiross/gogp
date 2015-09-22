@@ -17,23 +17,6 @@ import (
 /***********************************
  * Genetic Operators
  **********************************/
-/*
-type Individual interface {
-	Crossover(float64, *Individual) // Crossover with given probability
-	Evaluate()                      // Evaluate and cache fitness
-	FitnessValid() bool             // True if fitness is valid
-	Initialize()                    // Be initializable
-	Mutate(p float64)               // Mutate with given probability
-	fmt.Stringer                    // Be convertible to string
-}
-
-type Population interface {
-	Evaluate() int                      // Evaluate fitnesses, return evaluated ones
-	Initialize(n int)                   // Build N individuals
-	Select(n int) ([]Individual, error) // Select N individuals
-	BestIndividual() *Individual        // Return the best individual in current population
-}
-*/
 
 var maxDepth int = 7 // Max allowed depth for trees
 
@@ -174,16 +157,37 @@ func (pop *Population) Select(n int) ([]Individual, error) {
 func main() {
 	// Setup options
 	seed := flag.Int64("seed", time.Now().UTC().UnixNano(), "Seed for RNG")
-	numGen := flag.Int("gen", 100, "Number of generations")
-	popSize := flag.Int("pop", 1000, "Size of population")
-	tournSize := flag.Int("tourn", 3, "Tournament size")
-	pCross := flag.Float64("pCross", 0.8, "Crossover probability")
-	pMut := flag.Float64("pMut", 0.1, "Bit mutation probability")
-	targetPath := flag.String("target", "", "Target image (PNG) path")
-
+	numGen := flag.Int("g", 100, "Number of generations")
+	popSize := flag.Int("p", 1000, "Size of population")
+	saveInterval := flag.Int("n", 25, "Generations interval between two snapshot saves")
+	tournSize := flag.Int("T", 3, "Tournament size")
+	pCross := flag.Float64("C", 0.8, "Crossover probability")
+	pMut := flag.Float64("M", 0.1, "Bit mutation probability")
+	quiet := flag.Bool("q", false, "Quiet mode")
+	targetPath := flag.String("t", "", "Target image (PNG) path")
+	var basedir, basename string
 	cpuProfile := flag.String("cpuprofile", "", "Write CPU profile to file")
 
+	flag.Usage = func() {
+		flag.PrintDefaults()
+		fmt.Fprintf(os.Stderr, "  basedir (string) to be used for saving logs and files\n")
+		fmt.Fprintf(os.Stderr, "  basename (string) to be used for saving logs and files\n")
+	}
+
 	flag.Parse()
+
+	// Check if the argument
+	args := flag.Args()
+
+	if len(args) != 2 {
+		flag.Usage()
+		fmt.Fprintf(os.Stderr, "\nBasename/basedir parameter not specified\n")
+		return
+	} else {
+		basedir = args[0]
+		basename = args[1]
+	}
+
 	if *cpuProfile != "" {
 		f, err := os.Create(*cpuProfile)
 		if err != nil {
@@ -201,7 +205,9 @@ func main() {
 		fmt.Println("ERROR: Cannot load image", *targetPath)
 		panic("Cannot load image")
 	}
-	fmt.Println("Image format RGB?", imgTarget.ColorSpace == imgut.MODE_RGB, imgTarget.ColorSpace)
+	if !*quiet {
+		fmt.Println("Image format RGB?", imgTarget.ColorSpace == imgut.MODE_RGB, imgTarget.ColorSpace)
+	}
 
 	// Compute the right value of maxDepth: each split divides image in 2
 	// Hence 2^n = 1, 2, 4, 8, 16... is the number of splits we get at depth n
@@ -210,7 +216,9 @@ func main() {
 	if logicalDepth < maxDepth {
 		maxDepth = logicalDepth
 	}
-	fmt.Println("For area of", imgTarget.W*imgTarget.H, "pixels, max depth is", maxDepth)
+	if !*quiet {
+		fmt.Println("For area of", imgTarget.W*imgTarget.H, "pixels, max depth is", maxDepth)
+	}
 
 	// Create temporary surface, of same size and mode
 	imgTemp = imgut.Create(imgTarget.W, imgTarget.H, imgTarget.ColorSpace)
@@ -220,7 +228,9 @@ func main() {
 	pointMutation = gogp.MakeTreeNodeMutation(functionals, terminals)
 
 	// Seed rng
-	fmt.Println("Seed used", *seed)
+	if !*quiet {
+		fmt.Println("Seed used", *seed)
+	}
 	rand.Seed(*seed)
 
 	// Build population
@@ -237,14 +247,16 @@ func main() {
 	*/
 
 	// Loop until max number of generation is reached
+	snapshot := 0
 	for g := 0; g < *numGen; g++ {
-		fmt.Print("Generation ", g)
 
 		// Compute fitness for every individual with no fitness
 		fitnessEval := pop.Evaluate()
-		fmt.Println(" fit evals", fitnessEval)
+		if !*quiet {
+			fmt.Println("Generation ", g, "fit evals", fitnessEval)
+		}
 
-		// BUG(akiross) the following could be faster by doing 1 loop for sel, xo, mut
+		// BUG(akiross) the following could be faster by doing 1 loop for sel, xo, mut (or by using goroutines! yeee)
 
 		// Apply selection
 		sel, _ := pop.Select(len(pop.pop))
@@ -256,13 +268,33 @@ func main() {
 			sel[i+1].Mutate(*pMut)
 		}
 
+		// Update samples
+		if g%*saveInterval == 0 {
+			snapName := fmt.Sprintf("%v/snapshot/%v-snapshot-%v.png", basedir, basename, snapshot)
+			if !*quiet {
+				fmt.Println("Saving best individual snapshot", snapName)
+				fmt.Println(pop.BestIndividual().node)
+			}
+			pop.BestIndividual().Draw(imgTemp)
+			imgTemp.WritePNG(snapName)
+			snapshot++
+		}
+
 		// Replace old population
 		pop.pop = sel
 	}
 	fitnessEval := pop.Evaluate()
-	fmt.Println("Generation", *numGen, "fit evals", fitnessEval)
 
-	fmt.Println("Best individual", pop.BestIndividual())
+	if !*quiet {
+		fmt.Println("Generation", *numGen, "fit evals", fitnessEval)
+		fmt.Println("Best individual", pop.BestIndividual())
+	}
+
+	bestName := fmt.Sprintf("%v/best/%v.png", basedir, basename)
+	if !*quiet {
+		fmt.Println("Saving best individual in", bestName)
+		fmt.Println(pop.BestIndividual().node)
+	}
 	pop.BestIndividual().Draw(imgTemp)
-	imgTemp.WritePNG("best-individual.png")
+	imgTemp.WritePNG(bestName)
 }
