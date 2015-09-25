@@ -10,7 +10,9 @@ import (
 	"math"
 	"math/rand"
 	"os"
+	"runtime"
 	"runtime/pprof" // profiling...
+	"sync"
 	"time"
 )
 
@@ -48,7 +50,7 @@ type Individual struct {
 
 type Population struct {
 	best      *Individual
-	pop       []Individual
+	pop       []*Individual
 	tournSize int
 	gogp.MinProblem
 }
@@ -111,7 +113,7 @@ func (pop *Population) BestIndividual() *Individual {
 // Evaluate population fitness, return number of evaluations
 func (pop *Population) Evaluate() (fitnessEval int) {
 	for i := range pop.pop {
-		var ind *Individual = &pop.pop[i]
+		var ind *Individual = pop.pop[i]
 		if !ind.FitnessValid() {
 			ind.Evaluate()
 			fitnessEval++
@@ -124,34 +126,132 @@ func (pop *Population) Evaluate() (fitnessEval int) {
 }
 
 func (pop *Population) Initialize(n int) {
-	pop.pop = make([]Individual, n)
+	pop.pop = make([]*Individual, n)
 	for i := range pop.pop {
+		pop.pop[i] = new(Individual)
 		pop.pop[i].Initialize()
 	}
 }
 
-func (pop *Population) Select(n int) ([]Individual, error) {
+func (pop *Population) Select(n int) ([]*Individual, error) {
 	selectionSize, tournSize := n, pop.tournSize
 	if (selectionSize < 1) || (tournSize < 1) {
 		return nil, &ParamError{"Cannot have selectionSize < 1 or tournSize < 1"}
 	}
 	// Slice to store the new population
-	newPop := make([]Individual, selectionSize)
-	// Perform tournaments
+	newPop := make([]*Individual, selectionSize)
 	for i := 0; i < selectionSize; i++ {
 		// Pick an initial (pointer to) random individual
-		best := &pop.pop[rand.Intn(len(pop.pop))]
+		best := pop.pop[rand.Intn(len(pop.pop))]
 		// Select other players and select the best
 		for j := 1; j < tournSize; j++ {
-			maybe := &pop.pop[rand.Intn(len(pop.pop))]
+			maybe := pop.pop[rand.Intn(len(pop.pop))]
 			if pop.BetterThan(maybe.fitness, best.fitness) {
 				best = maybe
 			}
 		}
-		// Save winner (copy it)
-		newPop[i] = Individual{best.node.Copy(), best.fitness, best.fitIsValid}
+		newPop[i] = &Individual{best.node.Copy(), best.fitness, best.fitIsValid}
 	}
 	return newPop, nil
+}
+
+// This is a version of Select that is a stage in a pipeline. Will provide pointers to NEW individuals
+func GenSelect(pop *Population, n int) <-chan *Individual {
+	// Get sizes
+	selectionSize, tournSize := n, pop.tournSize
+	// A channel for output individuals
+	out := make(chan *Individual, selectionSize)
+	go func() {
+		for i := 0; i < selectionSize; i++ {
+			// Pick an initial (pointer to) random individual
+			best := pop.pop[rand.Intn(len(pop.pop))]
+			// Select other players and select the best
+			for j := 1; j < tournSize; j++ {
+				maybe := pop.pop[rand.Intn(len(pop.pop))]
+				if pop.BetterThan(maybe.fitness, best.fitness) {
+					best = maybe
+				}
+			}
+			sel := &Individual{best.node.Copy(), best.fitness, best.fitIsValid}
+			out <- sel
+		}
+		close(out)
+	}()
+	return out
+}
+
+func GenCrossover(in <-chan *Individual, pCross float64) <-chan *Individual {
+	out := make(chan *Individual)
+	go func() {
+		// Continue forever
+		for {
+			// Take one item and if we got a real item
+			i1, ok := <-in
+			if ok {
+				i2, ok := <-in
+				if ok {
+					// We got two items! Crossover
+					i1.Crossover(pCross, i2)
+					out <- i1
+					out <- i2
+				} else {
+					// Can't crossover a single item
+					out <- i1
+				}
+			} else {
+				close(out)
+				break
+			}
+		}
+	}()
+	return out
+}
+
+func GenMutate(in <-chan *Individual, pMut float64) <-chan *Individual {
+	out := make(chan *Individual)
+	go func() {
+		for ind := range in {
+			ind.Mutate(pMut)
+			out <- ind
+		}
+		close(out)
+	}()
+	return out
+}
+
+func FanIn(in ...<-chan *Individual) <-chan *Individual {
+	out := make(chan *Individual)
+	// Used to wait that a set of goroutines finish
+	var wg sync.WaitGroup
+	// Function that copy from one channel to out
+	emitter := func(c <-chan *Individual) {
+		for i := range c {
+			out <- i
+		}
+		wg.Done() // Signal the group
+	}
+	// How many goroutines to wait for
+	wg.Add(len(in))
+	// Start the routines
+	for _, c := range in {
+		go emitter(c)
+	}
+
+	// Wait for the emitters to finish, then close
+	go func() {
+		wg.Wait()
+		close(out)
+	}()
+	return out
+}
+
+// Collects all the individuals from a channel and return a slice. Size is a hint for performances
+func Collector(in <-chan *Individual, size int) []*Individual {
+	pop := make([]*Individual, 0, size)
+	for ind := range in {
+		pop = append(pop, ind)
+	}
+	return pop
 }
 
 func main() {
@@ -230,6 +330,9 @@ func main() {
 	// Seed rng
 	if !*quiet {
 		fmt.Println("Seed used", *seed)
+		fmt.Println("Number of CPUs", runtime.NumCPU())
+		runtime.GOMAXPROCS(runtime.NumCPU())
+		fmt.Println("CPUs limits", runtime.GOMAXPROCS(0))
 	}
 	rand.Seed(*seed)
 
@@ -256,16 +359,24 @@ func main() {
 			fmt.Println("Generation ", g, "fit evals", fitnessEval)
 		}
 
-		// BUG(akiross) the following could be faster by doing 1 loop for sel, xo, mut (or by using goroutines! yeee)
+		// set to true to use non-pipelined version
+		var sel []*Individual
+		if false {
+			// Apply selection
+			sel, _ = pop.Select(len(pop.pop))
 
-		// Apply selection
-		sel, _ := pop.Select(len(pop.pop))
+			// Crossover and mutation
+			for i := 0; i < len(sel)-1; i += 2 {
+				sel[i].Crossover(*pCross, sel[i+1])
+				sel[i].Mutate(*pMut)
+				sel[i+1].Mutate(*pMut)
+			}
 
-		// Crossover and mutation
-		for i := 0; i < len(sel)-1; i += 2 {
-			sel[i].Crossover(*pCross, &sel[i+1])
-			sel[i].Mutate(*pMut)
-			sel[i+1].Mutate(*pMut)
+		} else {
+			chSel := GenSelect(pop, len(pop.pop))
+			chXo1, chXo2, chXo3, chXo4 := GenCrossover(chSel, *pCross), GenCrossover(chSel, *pCross), GenCrossover(chSel, *pCross), GenCrossover(chSel, *pCross)
+			chMut1, chMut2, chMut3, chMut4 := GenMutate(chXo1, *pMut), GenMutate(chXo2, *pMut), GenMutate(chXo3, *pMut), GenMutate(chXo4, *pMut)
+			sel = Collector(FanIn(chMut1, chMut2, chMut3, chMut4), len(pop.pop))
 		}
 
 		// Update samples
