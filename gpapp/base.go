@@ -3,7 +3,7 @@ package main
 import (
 	"ale-re.net/phd/gogp"
 	"ale-re.net/phd/image/draw2d/imgut"
-	"ale-re.net/phd/reprgp/expr/binary"
+	"ale-re.net/phd/reprgp/split/ts"
 	"flag"
 	"fmt"
 	"math"
@@ -13,36 +13,6 @@ import (
 	"runtime/pprof" // profiling...
 	"time"
 )
-
-/***********************************
- * Genetic Operators
- **********************************/
-
-var maxDepth int = 3 // Max allowed depth for trees
-
-// Define primitives
-var functionals []gogp.Primitive = []gogp.Primitive{
-	binary.Functional2(binary.Sum),
-	binary.Functional2(binary.Sub),
-	binary.Functional2(binary.Mul),
-	binary.Functional2(binary.ProtectedDiv),
-	binary.Functional1(binary.Square),
-	binary.Functional1(binary.Abs),
-}
-
-var terminals []gogp.Primitive = []gogp.Primitive{
-	binary.Terminal(binary.IdentityX),
-	binary.Terminal(binary.IdentityY),
-	binary.Terminal(binary.Constant(-10)),
-	binary.Terminal(binary.Constant(-5)),
-	binary.Terminal(binary.Constant(-2)),
-	binary.Terminal(binary.Constant(-1)),
-	binary.Terminal(binary.Constant(0)),
-	binary.Terminal(binary.Constant(1)),
-	binary.Terminal(binary.Constant(2)),
-	binary.Terminal(binary.Constant(5)),
-	binary.Terminal(binary.Constant(10)),
-}
 
 // Images used for evaluation
 var imgTarget, imgTemp *imgut.Image
@@ -82,17 +52,6 @@ func (ind *Individual) Crossover(pCross float64, mate gogp.Individual) {
 	}
 	crossOver(ind.node, mate.(*Individual).node)
 	ind.fitIsValid, mate.(*Individual).fitIsValid = false, false
-}
-
-func (ind *Individual) Draw(img *imgut.Image) {
-	// We have to compile the nodes
-	exec := gogp.CompileTree(ind.node).(binary.Terminal)
-	// Apply the function
-	//	exec(0 0, float64(img.W), float64(img.H), img)
-	var call imgut.PixelFunc = func(x, y int) float64 {
-		return float64(exec(binary.NumericIn(x), binary.NumericIn(y)))
-	}
-	img.FillMath(call)
 }
 
 func (ind *Individual) Evaluate() {
@@ -179,7 +138,7 @@ func (pop *Population) Select(n int) ([]gogp.Individual, error) {
 	return newPop, nil
 }
 
-func main() {
+func Main() {
 	// Setup options
 	seed := flag.Int64("seed", time.Now().UTC().UnixNano(), "Seed for RNG")
 	numGen := flag.Int("g", 100, "Number of generations")
@@ -234,10 +193,8 @@ func main() {
 		fmt.Println("Image format RGB?", imgTarget.ColorSpace == imgut.MODE_RGB, imgTarget.ColorSpace)
 	}
 
-	// Compute the right value of maxDepth: each triangle splits in 4 parts the image
-	// Hence 4^n = 1, 4, 16, 64, 256... is the number of splits we get at depth n
-	// If the image has P pixels, we want to pick the smallest n such that 4^n > P -> n > log_2(P)/2
-	logicalDepth := int(math.Log2(float64(imgTarget.W*imgTarget.H))/2) + 1
+	// Compute the right value of maxDepth
+	logicalDepth := MaxDepth(imgTarget) //int(math.Log2(float64(imgTarget.W*imgTarget.H))/2) + 1
 	if logicalDepth < maxDepth {
 		maxDepth = logicalDepth
 	}

@@ -6,13 +6,11 @@ import (
 	"ale-re.net/phd/reprgp/split/vhs"
 	"flag"
 	"fmt"
-	"log"
 	"math"
 	"math/rand"
 	"os"
 	"runtime"
 	"runtime/pprof" // profiling...
-	"sync"
 	"time"
 )
 
@@ -63,12 +61,16 @@ func (e *ParamError) Error() string {
 	return e.what
 }
 
-func (ind *Individual) Crossover(pCross float64, mate *Individual) {
+func (ind *Individual) Copy() gogp.Individual {
+	return &Individual{ind.node.Copy(), ind.fitness, ind.fitIsValid}
+}
+
+func (ind *Individual) Crossover(pCross float64, mate gogp.Individual) {
 	if rand.Float64() >= pCross {
 		return
 	}
-	crossOver(ind.node, mate.node)
-	ind.fitIsValid, mate.fitIsValid = false, false
+	crossOver(ind.node, mate.(*Individual).node)
+	ind.fitIsValid, mate.(*Individual).fitIsValid = false, false
 }
 
 func (ind *Individual) Draw(img *imgut.Image) {
@@ -106,8 +108,15 @@ func (ind *Individual) String() string {
 	return fmt.Sprint(ind.node)
 }
 
-func (pop *Population) BestIndividual() *Individual {
+func (pop *Population) BestIndividual() gogp.Individual {
 	return pop.best
+}
+
+func (pop *Population) Get(i int) gogp.Individual {
+	return pop.pop[i]
+}
+func (pop *Population) Size() int {
+	return len(pop.pop)
 }
 
 // Evaluate population fitness, return number of evaluations
@@ -133,13 +142,13 @@ func (pop *Population) Initialize(n int) {
 	}
 }
 
-func (pop *Population) Select(n int) ([]*Individual, error) {
+func (pop *Population) Select(n int) ([]gogp.Individual, error) {
 	selectionSize, tournSize := n, pop.tournSize
 	if (selectionSize < 1) || (tournSize < 1) {
 		return nil, &ParamError{"Cannot have selectionSize < 1 or tournSize < 1"}
 	}
 	// Slice to store the new population
-	newPop := make([]*Individual, selectionSize)
+	newPop := make([]gogp.Individual, selectionSize)
 	for i := 0; i < selectionSize; i++ {
 		// Pick an initial (pointer to) random individual
 		best := pop.pop[rand.Intn(len(pop.pop))]
@@ -153,105 +162,6 @@ func (pop *Population) Select(n int) ([]*Individual, error) {
 		newPop[i] = &Individual{best.node.Copy(), best.fitness, best.fitIsValid}
 	}
 	return newPop, nil
-}
-
-// This is a version of Select that is a stage in a pipeline. Will provide pointers to NEW individuals
-func GenSelect(pop *Population, n int) <-chan *Individual {
-	// Get sizes
-	selectionSize, tournSize := n, pop.tournSize
-	// A channel for output individuals
-	out := make(chan *Individual, selectionSize)
-	go func() {
-		for i := 0; i < selectionSize; i++ {
-			// Pick an initial (pointer to) random individual
-			best := pop.pop[rand.Intn(len(pop.pop))]
-			// Select other players and select the best
-			for j := 1; j < tournSize; j++ {
-				maybe := pop.pop[rand.Intn(len(pop.pop))]
-				if pop.BetterThan(maybe.fitness, best.fitness) {
-					best = maybe
-				}
-			}
-			sel := &Individual{best.node.Copy(), best.fitness, best.fitIsValid}
-			out <- sel
-		}
-		close(out)
-	}()
-	return out
-}
-
-func GenCrossover(in <-chan *Individual, pCross float64) <-chan *Individual {
-	out := make(chan *Individual)
-	go func() {
-		// Continue forever
-		for {
-			// Take one item and if we got a real item
-			i1, ok := <-in
-			if ok {
-				i2, ok := <-in
-				if ok {
-					// We got two items! Crossover
-					i1.Crossover(pCross, i2)
-					out <- i1
-					out <- i2
-				} else {
-					// Can't crossover a single item
-					out <- i1
-				}
-			} else {
-				close(out)
-				break
-			}
-		}
-	}()
-	return out
-}
-
-func GenMutate(in <-chan *Individual, pMut float64) <-chan *Individual {
-	out := make(chan *Individual)
-	go func() {
-		for ind := range in {
-			ind.Mutate(pMut)
-			out <- ind
-		}
-		close(out)
-	}()
-	return out
-}
-
-func FanIn(in ...<-chan *Individual) <-chan *Individual {
-	out := make(chan *Individual)
-	// Used to wait that a set of goroutines finish
-	var wg sync.WaitGroup
-	// Function that copy from one channel to out
-	emitter := func(c <-chan *Individual) {
-		for i := range c {
-			out <- i
-		}
-		wg.Done() // Signal the group
-	}
-	// How many goroutines to wait for
-	wg.Add(len(in))
-	// Start the routines
-	for _, c := range in {
-		go emitter(c)
-	}
-
-	// Wait for the emitters to finish, then close
-	go func() {
-		wg.Wait()
-		close(out)
-	}()
-	return out
-}
-
-// Collects all the individuals from a channel and return a slice. Size is a hint for performances
-func Collector(in <-chan *Individual, size int) []*Individual {
-	pop := make([]*Individual, 0, size)
-	for ind := range in {
-		pop = append(pop, ind)
-	}
-	return pop
 }
 
 func main() {
@@ -291,12 +201,12 @@ func main() {
 	if *cpuProfile != "" {
 		f, err := os.Create(*cpuProfile)
 		if err != nil {
-			log.Fatal(err)
+			fmt.Println("ERROR", err)
+			panic("Cannot create cpuprofile")
 		}
 		pprof.StartCPUProfile(f)
 		defer pprof.StopCPUProfile()
 	}
-	_, _, _, _, _, _ = seed, numGen, popSize, tournSize, pCross, pMut
 
 	// Load the target
 	var err error
@@ -360,7 +270,7 @@ func main() {
 		}
 
 		// set to true to use non-pipelined version
-		var sel []*Individual
+		var sel []gogp.Individual
 		if false {
 			// Apply selection
 			sel, _ = pop.Select(len(pop.pop))
@@ -373,10 +283,10 @@ func main() {
 			}
 
 		} else {
-			chSel := GenSelect(pop, len(pop.pop))
-			chXo1, chXo2, chXo3, chXo4 := GenCrossover(chSel, *pCross), GenCrossover(chSel, *pCross), GenCrossover(chSel, *pCross), GenCrossover(chSel, *pCross)
-			chMut1, chMut2, chMut3, chMut4 := GenMutate(chXo1, *pMut), GenMutate(chXo2, *pMut), GenMutate(chXo3, *pMut), GenMutate(chXo4, *pMut)
-			sel = Collector(FanIn(chMut1, chMut2, chMut3, chMut4), len(pop.pop))
+			chSel := gogp.GenSelect(pop, len(pop.pop))
+			chXo1, chXo2, chXo3, chXo4 := gogp.GenCrossover(chSel, *pCross), gogp.GenCrossover(chSel, *pCross), gogp.GenCrossover(chSel, *pCross), gogp.GenCrossover(chSel, *pCross)
+			chMut1, chMut2, chMut3, chMut4 := gogp.GenMutate(chXo1, *pMut), gogp.GenMutate(chXo2, *pMut), gogp.GenMutate(chXo3, *pMut), gogp.GenMutate(chXo4, *pMut)
+			sel = gogp.Collector(gogp.FanIn(chMut1, chMut2, chMut3, chMut4), len(pop.pop))
 		}
 
 		// Update samples
@@ -384,15 +294,17 @@ func main() {
 			snapName := fmt.Sprintf("%v/snapshot/%v-snapshot-%v.png", basedir, basename, snapshot)
 			if !*quiet {
 				fmt.Println("Saving best individual snapshot", snapName)
-				fmt.Println(pop.BestIndividual().node)
+				fmt.Println(pop.BestIndividual())
 			}
-			pop.BestIndividual().Draw(imgTemp)
+			pop.BestIndividual().(*Individual).Draw(imgTemp)
 			imgTemp.WritePNG(snapName)
 			snapshot++
 		}
 
 		// Replace old population
-		pop.pop = sel
+		for i := range sel {
+			pop.pop[i] = sel[i].(*Individual)
+		}
 	}
 	fitnessEval := pop.Evaluate()
 
@@ -404,8 +316,8 @@ func main() {
 	bestName := fmt.Sprintf("%v/best/%v.png", basedir, basename)
 	if !*quiet {
 		fmt.Println("Saving best individual in", bestName)
-		fmt.Println(pop.BestIndividual().node)
+		fmt.Println(pop.BestIndividual())
 	}
-	pop.BestIndividual().Draw(imgTemp)
+	pop.BestIndividual().(*Individual).Draw(imgTemp)
 	imgTemp.WritePNG(bestName)
 }
