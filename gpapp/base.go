@@ -1,12 +1,10 @@
-package main
+package gpapp
 
 import (
 	"ale-re.net/phd/gogp"
 	"ale-re.net/phd/image/draw2d/imgut"
-	"ale-re.net/phd/reprgp/split/ts"
 	"flag"
 	"fmt"
-	"math"
 	"math/rand"
 	"os"
 	"runtime"
@@ -14,15 +12,24 @@ import (
 	"time"
 )
 
+// We keep this low, because trees may grow too large
+// and use too much memory
+var maxDepth int = 5 // Max allowed depth for trees
 // Images used for evaluation
 var imgTarget, imgTemp *imgut.Image
+
+// Functionals and terminals used
+var functionals []gogp.Primitive
+var terminals []gogp.Primitive
+
+var draw func(*Individual, *imgut.Image)
 
 // Operators used in evolution
 var crossOver func(*gogp.Node, *gogp.Node)
 var pointMutation func(*gogp.Node)
 
 type Individual struct {
-	node       *gogp.Node
+	Node       *gogp.Node
 	fitness    gogp.Fitness
 	fitIsValid bool
 }
@@ -43,15 +50,19 @@ func (e *ParamError) Error() string {
 }
 
 func (ind *Individual) Copy() gogp.Individual {
-	return &Individual{ind.node.Copy(), ind.fitness, ind.fitIsValid}
+	return &Individual{ind.Node.Copy(), ind.fitness, ind.fitIsValid}
 }
 
 func (ind *Individual) Crossover(pCross float64, mate gogp.Individual) {
 	if rand.Float64() >= pCross {
 		return
 	}
-	crossOver(ind.node, mate.(*Individual).node)
+	crossOver(ind.Node, mate.(*Individual).Node)
 	ind.fitIsValid, mate.(*Individual).fitIsValid = false, false
+}
+
+func (ind *Individual) Draw(img *imgut.Image) {
+	draw(ind, img)
 }
 
 func (ind *Individual) Evaluate() {
@@ -66,20 +77,20 @@ func (ind *Individual) FitnessValid() bool {
 }
 
 func (ind *Individual) Initialize() {
-	ind.node = gogp.MakeTreeHalfAndHalf(maxDepth, functionals, terminals)
+	ind.Node = gogp.MakeTreeHalfAndHalf(maxDepth, functionals, terminals)
 }
 
-// BUG(akiross) the mutation used here replaces a single, random node with an equivalent one - same as in DEAP - but we should go over each node and apply mutation probability
+// BUG(akiross) the mutation used here replaces a single, random.Node with an equivalent one - same as in DEAP - but we should go over each.Node and apply mutation probability
 func (ind *Individual) Mutate(pMut float64) {
 	if rand.Float64() >= pMut {
 		return
 	}
-	pointMutation(ind.node)
+	pointMutation(ind.Node)
 	ind.fitIsValid = false
 }
 
 func (ind *Individual) String() string {
-	return fmt.Sprint(ind.node)
+	return fmt.Sprint(ind.Node)
 }
 
 func (pop *Population) BestIndividual() gogp.Individual {
@@ -133,12 +144,15 @@ func (pop *Population) Select(n int) ([]gogp.Individual, error) {
 				best = maybe
 			}
 		}
-		newPop[i] = &Individual{best.node.Copy(), best.fitness, best.fitIsValid}
+		newPop[i] = &Individual{best.Node.Copy(), best.fitness, best.fitIsValid}
 	}
 	return newPop, nil
 }
 
-func Main() {
+func Evolve(calcMaxDepth func(*imgut.Image) int, fun, ter []gogp.Primitive, draw func(*Individual, *imgut.Image)) {
+	// Primitives to use
+	functionals, terminals = fun, ter
+
 	// Setup options
 	seed := flag.Int64("seed", time.Now().UTC().UnixNano(), "Seed for RNG")
 	numGen := flag.Int("g", 100, "Number of generations")
@@ -194,7 +208,7 @@ func Main() {
 	}
 
 	// Compute the right value of maxDepth
-	logicalDepth := MaxDepth(imgTarget) //int(math.Log2(float64(imgTarget.W*imgTarget.H))/2) + 1
+	logicalDepth := calcMaxDepth(imgTarget) //int(math.Log2(float64(imgTarget.W*imgTarget.H))/2) + 1
 	if logicalDepth < maxDepth {
 		maxDepth = logicalDepth
 	}
