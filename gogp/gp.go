@@ -415,6 +415,39 @@ func MakeTreeNodeMutation(funcs, terms []Primitive) func(*Node) {
 	}
 }
 
+// Randomly select two subrees and swap them
+func MakeSubtreeSwapMutation(funcs, terms []Primitive) func(*Node) {
+	return func(t *Node) {
+	}
+}
+
+// Swap node contents
+func swapNodes(n1, n2 *Node) {
+	n1.value, n2.value = n2.value, n1.value
+	n1.children, n2.children = n2.children, n1.children
+}
+
+// Replaces a randomly selected subtree with another randomly created subtree
+// maxH describes the maximum height of the resulting tree
+func MakeSubtreeMutation(maxH int, genFunction func(maxH int) *Node) func(*Node) {
+	return func(t *Node) {
+		// Get a slice with the nodes
+		tNodes, _, tHeights := t.Enumerate()
+		size := len(tNodes)
+		// Pick a random node
+		nid := rand.Intn(size)
+
+		// The random tree may have, at most, the
+		hLimit := maxH - tHeights[nid]
+
+		// Build the replacement
+		replacement := genFunction(hLimit)
+		// Swap the content of the nodes
+		swapNodes(tNodes[nid], replacement)
+		// Replacement is discarded
+	}
+}
+
 /*
 func intMax(n ...int) int {
 	index := 0
@@ -469,10 +502,7 @@ func MakeTree1pCrossover(maxDepth int) func(*Node, *Node) {
 		}
 
 		// Swap the nodes in the parent, so that references to nodes will be valid
-		n1, n2 := t1Nodes[rn1], t2Nodes[rn2]
-
 		// Swap the content of the nodes (so, we can swap also roots)
-		n1.value, n2.value = n2.value, n1.value
-		n1.children, n2.children = n2.children, n1.children
+		swapNodes(t1Nodes[rn1], t2Nodes[rn2])
 	}
 }

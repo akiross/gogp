@@ -5,7 +5,7 @@ import (
 	"ale-re.net/phd/gpapp"
 	"ale-re.net/phd/image/draw2d/imgut"
 	"ale-re.net/phd/reprgp/expr/binary"
-	"math"
+	"math/rand"
 )
 
 /***********************************
@@ -14,25 +14,28 @@ import (
 
 // Define primitives
 var functionals []gogp.Primitive = []gogp.Primitive{
+	binary.Functional3(binary.Choice), // if-then-else
 	binary.Functional2(binary.Sum),
 	binary.Functional2(binary.Sub),
 	binary.Functional2(binary.Mul),
 	binary.Functional2(binary.ProtectedDiv),
+	binary.Functional2(binary.Min),
+	binary.Functional2(binary.Max),
+	binary.Functional2(binary.Pow),
+	binary.Functional1(binary.Sqrt),
 	binary.Functional1(binary.Square),
 	binary.Functional1(binary.Abs),
+	binary.Functional1(binary.Neg),
+	binary.Functional1(binary.Sign),
 }
 
 var terminals []gogp.Primitive = []gogp.Primitive{
 	binary.Terminal(binary.IdentityX),
 	binary.Terminal(binary.IdentityY),
-	binary.Terminal(binary.Constant(-10)),
-	binary.Terminal(binary.Constant(-5)),
-	binary.Terminal(binary.Constant(-2)),
 	binary.Terminal(binary.Constant(-1)),
 	binary.Terminal(binary.Constant(0)),
 	binary.Terminal(binary.Constant(1)),
 	binary.Terminal(binary.Constant(2)),
-	binary.Terminal(binary.Constant(5)),
 	binary.Terminal(binary.Constant(10)),
 }
 
@@ -48,10 +51,16 @@ func draw(ind *gpapp.Individual, img *imgut.Image) {
 }
 
 func maxDepth(img *imgut.Image) int {
-	// Compute the right value of maxDepth: each triangle splits in 4 parts the image
-	// Hence 4^n = 1, 4, 16, 64, 256... is the number of splits we get at depth n
-	// If the image has P pixels, we want to pick the smallest n such that 4^n > P -> n > log_2(P)/2
-	return int(math.Log2(float64(img.W*img.H))/2) + 1
+	// Depth is fixed, we cannot get a "feature size" depending on image size
+	return 6
+}
+
+func init() {
+	// Add some random constants to terminals
+	for i := 0; i < 20; i++ {
+		c := binary.NumericOut(rand.Float64()*100.0 - 50.0)
+		terminals = append(terminals, binary.Terminal(binary.Constant(c)))
+	}
 }
 
 func main() {

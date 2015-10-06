@@ -36,7 +36,15 @@ func draw(ind *gpapp.Individual, img *imgut.Image) {
 }
 
 func maxDepth(img *imgut.Image) int {
-	return int(math.Log2(float64(img.W*img.H))/2) + 1
+	// Compute the right value of maxDepth: each triangle splits in 4 parts the image
+	// Hence 4^n = 1, 4, 16, 64, 256... is the number of splits we get at depth n
+	// If the image has P pixels, we want to pick the smallest n such that 4^n > P -> n > log_2(P)/2
+	md := int(math.Log2(float64(img.W*img.H))/2) + 1
+	// Limit height to 4, to avoid trees with too many nodes
+	if md > 4 {
+		return 4
+	}
+	return md
 }
 
 func main() {

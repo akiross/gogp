@@ -12,21 +12,24 @@ import (
 	"time"
 )
 
-// We keep this low, because trees may grow too large
-// and use too much memory
-var maxDepth int = 5 // Max allowed depth for trees
-// Images used for evaluation
-var imgTarget, imgTemp *imgut.Image
+var (
+	// We keep this low, because trees may grow too large
+	// and use too much memory
+	maxDepth int
 
-// Functionals and terminals used
-var functionals []gogp.Primitive
-var terminals []gogp.Primitive
+	// Images used for evaluation
+	imgTarget, imgTemp *imgut.Image
 
-var draw func(*Individual, *imgut.Image)
+	// Functionals and terminals used
+	functionals []gogp.Primitive
+	terminals   []gogp.Primitive
 
-// Operators used in evolution
-var crossOver func(*gogp.Node, *gogp.Node)
-var pointMutation func(*gogp.Node)
+	draw func(*Individual, *imgut.Image)
+
+	// Operators used in evolution
+	crossOver     func(*gogp.Node, *gogp.Node)
+	pointMutation func(*gogp.Node)
+)
 
 type Individual struct {
 	Node       *gogp.Node
@@ -149,9 +152,11 @@ func (pop *Population) Select(n int) ([]gogp.Individual, error) {
 	return newPop, nil
 }
 
-func Evolve(calcMaxDepth func(*imgut.Image) int, fun, ter []gogp.Primitive, draw func(*Individual, *imgut.Image)) {
+func Evolve(calcMaxDepth func(*imgut.Image) int, fun, ter []gogp.Primitive, drawfun func(*Individual, *imgut.Image)) {
 	// Primitives to use
 	functionals, terminals = fun, ter
+	// Draw function to use
+	draw = drawfun
 
 	// Setup options
 	seed := flag.Int64("seed", time.Now().UTC().UnixNano(), "Seed for RNG")
@@ -208,10 +213,7 @@ func Evolve(calcMaxDepth func(*imgut.Image) int, fun, ter []gogp.Primitive, draw
 	}
 
 	// Compute the right value of maxDepth
-	logicalDepth := calcMaxDepth(imgTarget) //int(math.Log2(float64(imgTarget.W*imgTarget.H))/2) + 1
-	if logicalDepth < maxDepth {
-		maxDepth = logicalDepth
-	}
+	maxDepth = calcMaxDepth(imgTarget)
 	if !*quiet {
 		fmt.Println("For area of", imgTarget.W*imgTarget.H, "pixels, max depth is", maxDepth)
 	}
