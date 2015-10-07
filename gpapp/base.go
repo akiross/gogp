@@ -1,10 +1,10 @@
 package gpapp
 
 import (
-	"ale-re.net/phd/gogp"
-	"ale-re.net/phd/image/draw2d/imgut"
 	"flag"
 	"fmt"
+	"github.com/akiross/gogp"
+	"github.com/akiross/image/draw2d/imgut"
 	"math/rand"
 	"os"
 	"runtime"

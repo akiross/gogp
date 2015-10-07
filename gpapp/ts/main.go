@@ -1,10 +1,10 @@
 package main
 
 import (
-	"ale-re.net/phd/gogp"
-	"ale-re.net/phd/gpapp"
-	"ale-re.net/phd/image/draw2d/imgut"
-	"ale-re.net/phd/reprgp/split/ts"
+	"github.com/akiross/gogp"
+	"github.com/akiross/gpapp"
+	"github.com/akiross/image/draw2d/imgut"
+	"github.com/akiross/reprgp/split/ts"
 	"math"
 )
 
@@ -15,6 +15,7 @@ import (
 // type Terminal func(x1, x2, y float64, img *imgut.Image)
 
 // Build terminals with names
+
 func Black(x1, x2, y float64, img *imgut.Image) {
 	ts.Filler(0, 0, 0, 1)(x1, x2, y, img)
 }
@@ -23,8 +24,14 @@ func White(x1, x2, y float64, img *imgut.Image) {
 	ts.Filler(1, 1, 1, 1)(x1, x2, y, img)
 }
 
+func Gray(x1, x2, y float64, img *imgut.Image) {
+	ts.Filler(0.5, 0.5, 0.5, 1)(x1, x2, y, img)
+}
+
 // Define primitives
 var functionals []gogp.Primitive = []gogp.Primitive{ts.Functional(ts.Split)}
+
+//var terminals []gogp.Primitive = make([]gogp.Primitive, 0, 10)
 var terminals []gogp.Primitive = []gogp.Primitive{ts.Terminal(Black), ts.Terminal(White)}
 
 func draw(ind *gpapp.Individual, img *imgut.Image) {
@@ -45,6 +52,17 @@ func maxDepth(img *imgut.Image) int {
 		return 4
 	}
 	return md
+}
+
+func init() {
+	// Build some colors
+	/*
+		count := 10
+		for i := 0; i <= count; i++ {
+			c := float64(i) / float64(count)
+			terminals = append(terminals, ts.Terminal(ts.Filler(c, c, c, 1)))
+		}
+	*/
 }
 
 func main() {

@@ -1,12 +1,12 @@
 package main
 
 import (
-	"ale-re.net/phd/gogp"
-	"ale-re.net/phd/image/cairo/imgut"
-	"ale-re.net/phd/reprgp/split/ts"
-	"ale-re.net/phd/reprgp/split/vhs"
 	"flag"
 	"fmt"
+	"github.com/akiross/gogp"
+	"github.com/akiross/image/draw2d/imgut"
+	"github.com/akiross/reprgp/split/ts"
+	"github.com/akiross/reprgp/split/vhs"
 	"math/rand"
 	"time"
 )

@@ -1,8 +1,8 @@
 package vhs
 
 import (
-	"ale-re.net/phd/gogp"
-	"ale-re.net/phd/image/draw2d/imgut"
+	"github.com/akiross/gogp"
+	"github.com/akiross/image/draw2d/imgut"
 )
 
 // The function that will be called to get a solution

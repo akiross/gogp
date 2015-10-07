@@ -1,10 +1,10 @@
 package main
 
 import (
-	"ale-re.net/phd/gogp"
-	"ale-re.net/phd/gpapp"
-	"ale-re.net/phd/image/draw2d/imgut"
-	"ale-re.net/phd/reprgp/expr/binary"
+	"github.com/akiross/gogp"
+	"github.com/akiross/gpapp"
+	"github.com/akiross/image/draw2d/imgut"
+	"github.com/akiross/reprgp/expr/binary"
 	"math/rand"
 )
 

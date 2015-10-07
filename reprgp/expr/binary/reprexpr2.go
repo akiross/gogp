@@ -1,7 +1,7 @@
 package binary
 
 import (
-	"ale-re.net/phd/gogp"
+	"github.com/akiross/gogp"
 	"math"
 )
 
