@@ -1,6 +1,6 @@
 package unary
 
-import "ale-re.net/phd/libgp/gp"
+import "github.com/akiross/gogp/gp"
 
 type NumericIn int
 type NumericOut float64
@@ -11,16 +11,16 @@ type Functional1 func(args ...gp.Primitive) gp.Primitive // Unary operations
 type Functional2 func(args ...gp.Primitive) gp.Primitive // Binary operations
 
 // The following are to satisfy the interface
-func (self Terminal) IsFunctional() bool                     { return false }
-func (self Terminal) Arity() int                             { return -1 }
+func (self Terminal) IsFunctional() bool                 { return false }
+func (self Terminal) Arity() int                         { return -1 }
 func (self Terminal) Run(p ...gp.Primitive) gp.Primitive { return self }
 
-func (self Functional1) IsFunctional() bool                     { return true }
-func (self Functional1) Arity() int                             { return 1 }
+func (self Functional1) IsFunctional() bool                 { return true }
+func (self Functional1) Arity() int                         { return 1 }
 func (self Functional1) Run(p ...gp.Primitive) gp.Primitive { return self(p[0]) }
 
-func (self Functional2) IsFunctional() bool                     { return true }
-func (self Functional2) Arity() int                             { return 2 }
+func (self Functional2) IsFunctional() bool                 { return true }
+func (self Functional2) Arity() int                         { return 2 }
 func (self Functional2) Run(p ...gp.Primitive) gp.Primitive { return self(p[0], p[1]) }
 
 func Identity(x NumericIn) NumericOut {

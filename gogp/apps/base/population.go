@@ -1,7 +1,7 @@
 package base
 
 import (
-	"github.com/akiross/libgp/ga"
+	"github.com/akiross/gogp/ga"
 	"math/rand"
 )
 

@@ -28,11 +28,10 @@ import (
 	"bytes"
 	"container/list"
 	"fmt"
+	"github.com/akiross/gogp/gp"
 	"os/exec"
 	"strings"
-	"github.com/akiross/libgp/gp"
 )
-
 
 type Node struct {
 	value    gp.Primitive
@@ -295,4 +294,3 @@ func (root *Node) Enumerate() ([]*Node, []int, []int) {
 
 	return tree, dtree, htree
 }
-

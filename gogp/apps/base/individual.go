@@ -2,10 +2,10 @@ package base
 
 import (
 	"fmt"
-	"github.com/akiross/libgp/ga"
-	"github.com/akiross/libgp/gp"
-	"github.com/akiross/libgp/image/draw2d/imgut"
-	"github.com/akiross/libgp/node"
+	"github.com/akiross/gogp/ga"
+	"github.com/akiross/gogp/gp"
+	"github.com/akiross/gogp/image/draw2d/imgut"
+	"github.com/akiross/gogp/node"
 	"math/rand"
 )
 

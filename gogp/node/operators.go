@@ -26,8 +26,8 @@ package node
 
 import (
 	"fmt"
+	"github.com/akiross/gogp/gp"
 	"math/rand"
-	"github.com/akiross/libgp/gp"
 )
 
 // strategy is a function that pick a gp.Primitive suitable to be placed in the tree, indicating if it's a functional or not, and giving the index of the picked gp.Primitive

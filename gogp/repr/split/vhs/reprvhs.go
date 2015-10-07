@@ -1,8 +1,8 @@
 package vhs
 
 import (
-	"github.com/akiross/libgp/gp"
-	"github.com/akiross/libgp/image/draw2d/imgut"
+	"github.com/akiross/gogp/gp"
+	"github.com/akiross/gogp/image/draw2d/imgut"
 )
 
 // The function that will be called to get a solution

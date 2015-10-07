@@ -1,8 +1,8 @@
 package ts
 
 import (
-	"github.com/akiross/libgp/gp"
-	"github.com/akiross/libgp/image/draw2d/imgut"
+	"github.com/akiross/gogp/gp"
+	"github.com/akiross/gogp/image/draw2d/imgut"
 )
 
 type Terminal func(x1, x2, y float64, img *imgut.Image)

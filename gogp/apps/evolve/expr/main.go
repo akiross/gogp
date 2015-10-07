@@ -1,12 +1,12 @@
 package main
 
 import (
-	"github.com/akiross/libgp/apps/base"
-	"github.com/akiross/libgp/apps/evolve"
-	"github.com/akiross/libgp/gp"
-	"github.com/akiross/libgp/image/draw2d/imgut"
-	"github.com/akiross/libgp/node"
-	"github.com/akiross/libgp/repr/expr/binary"
+	"github.com/akiross/gogp/apps/base"
+	"github.com/akiross/gogp/apps/evolve"
+	"github.com/akiross/gogp/gp"
+	"github.com/akiross/gogp/image/draw2d/imgut"
+	"github.com/akiross/gogp/node"
+	"github.com/akiross/gogp/repr/expr/binary"
 	"math/rand"
 )
 
