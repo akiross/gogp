@@ -1,4 +1,4 @@
-package gogp
+package ga
 
 import (
 	"sync"

@@ -1,7 +1,7 @@
 package binary
 
 import (
-	"github.com/akiross/gogp"
+	"github.com/akiross/libgp/gp"
 	"math"
 )
 
@@ -10,26 +10,26 @@ type NumericOut float64
 
 type Terminal func(x, y NumericIn) NumericOut
 
-type Functional1 func(args ...gogp.Primitive) gogp.Primitive // Unary operations
-type Functional2 func(args ...gogp.Primitive) gogp.Primitive // Binary operations
-type Functional3 func(args ...gogp.Primitive) gogp.Primitive // Ternary operations
+type Functional1 func(args ...gp.Primitive) gp.Primitive // Unary operations
+type Functional2 func(args ...gp.Primitive) gp.Primitive // Binary operations
+type Functional3 func(args ...gp.Primitive) gp.Primitive // Ternary operations
 
 // The following are to satisfy the interface
 func (self Terminal) IsFunctional() bool                     { return false }
 func (self Terminal) Arity() int                             { return -1 }
-func (self Terminal) Run(p ...gogp.Primitive) gogp.Primitive { return self }
+func (self Terminal) Run(p ...gp.Primitive) gp.Primitive { return self }
 
 func (self Functional1) IsFunctional() bool                     { return true }
 func (self Functional1) Arity() int                             { return 1 }
-func (self Functional1) Run(p ...gogp.Primitive) gogp.Primitive { return self(p[0]) }
+func (self Functional1) Run(p ...gp.Primitive) gp.Primitive { return self(p[0]) }
 
 func (self Functional2) IsFunctional() bool                     { return true }
 func (self Functional2) Arity() int                             { return 2 }
-func (self Functional2) Run(p ...gogp.Primitive) gogp.Primitive { return self(p[0], p[1]) }
+func (self Functional2) Run(p ...gp.Primitive) gp.Primitive { return self(p[0], p[1]) }
 
 func (self Functional3) IsFunctional() bool                     { return true }
 func (self Functional3) Arity() int                             { return 3 }
-func (self Functional3) Run(p ...gogp.Primitive) gogp.Primitive { return self(p[0], p[1], p[2]) }
+func (self Functional3) Run(p ...gp.Primitive) gp.Primitive { return self(p[0], p[1], p[2]) }
 
 func IdentityX(x, _ NumericIn) NumericOut {
 	return NumericOut(x)
@@ -45,25 +45,25 @@ func Constant(c NumericOut) Terminal {
 	}
 }
 
-func Sum(args ...gogp.Primitive) gogp.Primitive {
+func Sum(args ...gp.Primitive) gp.Primitive {
 	return Terminal(func(x, y NumericIn) NumericOut {
 		return args[0].(Terminal)(x, y) + args[1].(Terminal)(x, y)
 	})
 }
 
-func Sub(args ...gogp.Primitive) gogp.Primitive {
+func Sub(args ...gp.Primitive) gp.Primitive {
 	return Terminal(func(x, y NumericIn) NumericOut {
 		return args[0].(Terminal)(x, y) - args[1].(Terminal)(x, y)
 	})
 }
 
-func Mul(args ...gogp.Primitive) gogp.Primitive {
+func Mul(args ...gp.Primitive) gp.Primitive {
 	return Terminal(func(x, y NumericIn) NumericOut {
 		return args[0].(Terminal)(x, y) * args[1].(Terminal)(x, y)
 	})
 }
 
-func ProtectedDiv(args ...gogp.Primitive) gogp.Primitive {
+func ProtectedDiv(args ...gp.Primitive) gp.Primitive {
 	return Terminal(func(x, y NumericIn) NumericOut {
 		n, d := args[0].(Terminal)(x, y), args[1].(Terminal)(x, y)
 		if d == NumericOut(0) {
@@ -74,7 +74,7 @@ func ProtectedDiv(args ...gogp.Primitive) gogp.Primitive {
 	})
 }
 
-func Square(args ...gogp.Primitive) gogp.Primitive {
+func Square(args ...gp.Primitive) gp.Primitive {
 	return Terminal(func(x, y NumericIn) NumericOut {
 		v := args[0].(Terminal)(x, y)
 		v = v * v
@@ -88,7 +88,7 @@ func Square(args ...gogp.Primitive) gogp.Primitive {
 	})
 }
 
-func Min(args ...gogp.Primitive) gogp.Primitive {
+func Min(args ...gp.Primitive) gp.Primitive {
 	return Terminal(func(x, y NumericIn) NumericOut {
 		v, w := args[0].(Terminal)(x, y), args[1].(Terminal)(x, y)
 		if v < w {
@@ -99,7 +99,7 @@ func Min(args ...gogp.Primitive) gogp.Primitive {
 	})
 }
 
-func Max(args ...gogp.Primitive) gogp.Primitive {
+func Max(args ...gp.Primitive) gp.Primitive {
 	return Terminal(func(x, y NumericIn) NumericOut {
 		v, w := args[0].(Terminal)(x, y), args[1].(Terminal)(x, y)
 		if v > w {
@@ -110,14 +110,14 @@ func Max(args ...gogp.Primitive) gogp.Primitive {
 	})
 }
 
-func Pow(args ...gogp.Primitive) gogp.Primitive {
+func Pow(args ...gp.Primitive) gp.Primitive {
 	return Terminal(func(x, y NumericIn) NumericOut {
 		base, exp := args[0].(Terminal)(x, y), args[1].(Terminal)(x, y)
 		return NumericOut(math.Pow(float64(base), float64(exp)))
 	})
 }
 
-func Abs(args ...gogp.Primitive) gogp.Primitive {
+func Abs(args ...gp.Primitive) gp.Primitive {
 	return Terminal(func(x, y NumericIn) NumericOut {
 		if v := args[0].(Terminal)(x, y); v < 0 {
 			return -v
@@ -127,13 +127,13 @@ func Abs(args ...gogp.Primitive) gogp.Primitive {
 	})
 }
 
-func Neg(args ...gogp.Primitive) gogp.Primitive {
+func Neg(args ...gp.Primitive) gp.Primitive {
 	return Terminal(func(x, y NumericIn) NumericOut {
 		return -args[0].(Terminal)(x, y)
 	})
 }
 
-func Sign(args ...gogp.Primitive) gogp.Primitive {
+func Sign(args ...gp.Primitive) gp.Primitive {
 	return Terminal(func(x, y NumericIn) NumericOut {
 		if args[0].(Terminal)(x, y) < 0 {
 			return -1
@@ -143,13 +143,13 @@ func Sign(args ...gogp.Primitive) gogp.Primitive {
 	})
 }
 
-func Sqrt(args ...gogp.Primitive) gogp.Primitive {
+func Sqrt(args ...gp.Primitive) gp.Primitive {
 	return Terminal(func(x, y NumericIn) NumericOut {
 		return NumericOut(math.Sqrt(float64(args[0].(Terminal)(x, y))))
 	})
 }
 
-func Choice(args ...gogp.Primitive) gogp.Primitive {
+func Choice(args ...gp.Primitive) gp.Primitive {
 	return Terminal(func(x, y NumericIn) NumericOut {
 		if args[0].(Terminal)(x, y) > 0 {
 			return args[1].(Terminal)(x, y)

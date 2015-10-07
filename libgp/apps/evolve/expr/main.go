@@ -1,10 +1,12 @@
 package main
 
 import (
-	"github.com/akiross/gogp"
-	"github.com/akiross/gpapp"
-	"github.com/akiross/image/draw2d/imgut"
-	"github.com/akiross/reprgp/expr/binary"
+	"github.com/akiross/libgp/apps/base"
+	"github.com/akiross/libgp/apps/evolve"
+	"github.com/akiross/libgp/gp"
+	"github.com/akiross/libgp/image/draw2d/imgut"
+	"github.com/akiross/libgp/node"
+	"github.com/akiross/libgp/repr/expr/binary"
 	"math/rand"
 )
 
@@ -13,7 +15,7 @@ import (
  **********************************/
 
 // Define primitives
-var functionals []gogp.Primitive = []gogp.Primitive{
+var functionals []gp.Primitive = []gp.Primitive{
 	binary.Functional3(binary.Choice), // if-then-else
 	binary.Functional2(binary.Sum),
 	binary.Functional2(binary.Sub),
@@ -29,7 +31,7 @@ var functionals []gogp.Primitive = []gogp.Primitive{
 	binary.Functional1(binary.Sign),
 }
 
-var terminals []gogp.Primitive = []gogp.Primitive{
+var terminals []gp.Primitive = []gp.Primitive{
 	binary.Terminal(binary.IdentityX),
 	binary.Terminal(binary.IdentityY),
 	binary.Terminal(binary.Constant(-1)),
@@ -39,9 +41,9 @@ var terminals []gogp.Primitive = []gogp.Primitive{
 	binary.Terminal(binary.Constant(10)),
 }
 
-func draw(ind *gpapp.Individual, img *imgut.Image) {
+func draw(ind *base.Individual, img *imgut.Image) {
 	// We have to compile the nodes
-	exec := gogp.CompileTree(ind.Node).(binary.Terminal)
+	exec := node.CompileTree(ind.Node).(binary.Terminal)
 	// Apply the function
 	//	exec(0 0, float64(img.W), float64(img.H), img)
 	var call imgut.PixelFunc = func(x, y int) float64 {
@@ -64,5 +66,5 @@ func init() {
 }
 
 func main() {
-	gpapp.Evolve(maxDepth, functionals, terminals, draw)
+	evolve.Evolve(maxDepth, functionals, terminals, draw)
 }

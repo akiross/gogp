@@ -1,8 +1,8 @@
 package ts
 
 import (
-	"github.com/akiross/gogp"
-	"github.com/akiross/image/draw2d/imgut"
+	"github.com/akiross/libgp/gp"
+	"github.com/akiross/libgp/image/draw2d/imgut"
 )
 
 type Terminal func(x1, x2, y float64, img *imgut.Image)
@@ -17,7 +17,7 @@ func (self Terminal) Arity() int {
 	return -1 // Not used
 }
 
-func (self Terminal) Run(p ...gogp.Primitive) gogp.Primitive {
+func (self Terminal) Run(p ...gp.Primitive) gp.Primitive {
 	return self
 }
 
@@ -29,7 +29,7 @@ func (self Functional) Arity() int {
 	return 4
 }
 
-func (self Functional) Run(p ...gogp.Primitive) gogp.Primitive {
+func (self Functional) Run(p ...gp.Primitive) gp.Primitive {
 	return self(p[0].(Terminal), p[1].(Terminal), p[2].(Terminal), p[3].(Terminal))
 }
 

@@ -1,4 +1,4 @@
-package gogp
+package node
 
 import (
 	"testing"

@@ -1,8 +1,8 @@
 package vhs
 
 import (
-	"github.com/akiross/gogp"
-	"github.com/akiross/image/draw2d/imgut"
+	"github.com/akiross/libgp/gp"
+	"github.com/akiross/libgp/image/draw2d/imgut"
 )
 
 // The function that will be called to get a solution
@@ -19,7 +19,7 @@ func (self Terminal) Arity() int {
 	return -1 // Not used
 }
 
-func (self Terminal) Run(p ...gogp.Primitive) gogp.Primitive {
+func (self Terminal) Run(p ...gp.Primitive) gp.Primitive {
 	return self
 }
 
@@ -31,7 +31,7 @@ func (self Functional) Arity() int {
 	return 2
 }
 
-func (self Functional) Run(p ...gogp.Primitive) gogp.Primitive {
+func (self Functional) Run(p ...gp.Primitive) gp.Primitive {
 	return self(p[0].(Terminal), p[1].(Terminal))
 }
 

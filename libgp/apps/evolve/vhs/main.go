@@ -1,10 +1,12 @@
 package main
 
 import (
-	"github.com/akiross/gogp"
-	"github.com/akiross/gpapp"
-	"github.com/akiross/image/draw2d/imgut"
-	"github.com/akiross/reprgp/split/vhs"
+	"github.com/akiross/libgp/apps/base"
+	"github.com/akiross/libgp/apps/evolve"
+	"github.com/akiross/libgp/gp"
+	"github.com/akiross/libgp/image/draw2d/imgut"
+	"github.com/akiross/libgp/node"
+	"github.com/akiross/libgp/repr/split/vhs"
 	"math"
 )
 
@@ -22,12 +24,12 @@ func White(x1, y1, x2, y2 float64, img *imgut.Image) {
 }
 
 // Define primitives
-var functionals []gogp.Primitive = []gogp.Primitive{vhs.Functional(vhs.VSplit), vhs.Functional(vhs.HSplit)}
-var terminals []gogp.Primitive = []gogp.Primitive{vhs.Terminal(Black), vhs.Terminal(White)}
+var functionals []gp.Primitive = []gp.Primitive{vhs.Functional(vhs.VSplit), vhs.Functional(vhs.HSplit)}
+var terminals []gp.Primitive = []gp.Primitive{vhs.Terminal(Black), vhs.Terminal(White)}
 
-func draw(ind *gpapp.Individual, img *imgut.Image) {
+func draw(ind *base.Individual, img *imgut.Image) {
 	// We have to compile the nodes
-	exec := gogp.CompileTree(ind.Node).(vhs.Terminal)
+	exec := node.CompileTree(ind.Node).(vhs.Terminal)
 	// Apply the function
 	exec(0, 0, float64(img.W), float64(img.H), img)
 }
@@ -45,5 +47,5 @@ func maxDepth(img *imgut.Image) int {
 }
 
 func main() {
-	gpapp.Evolve(maxDepth, functionals, terminals, draw)
+	evolve.Evolve(maxDepth, functionals, terminals, draw)
 }
