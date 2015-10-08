@@ -12,15 +12,15 @@ import (
 )
 
 const (
-	N     = 20
-	M     = 20
+	N     = 1000
+	M     = 50
 	MAX_D = 8
 	IMG_W = 100
 	IMG_H = 100
 )
 
 // Locality test
-func testRepr(initFunc func(maxDep int) *node.Node, mutateFunc func(float64, *node.Node), paintFunc func(*node.Node, *imgut.Image)) float64 {
+func testRepr(initFunc func(maxDep int) *node.Node, mutateFunc func(float64, *node.Node), paintFunc func(*node.Node, *imgut.Image)) (avgErr, varErr float64) {
 	// Create storage for the images
 	indImage := imgut.Create(IMG_W, IMG_H, imgut.MODE_RGB)
 	tmpImage := imgut.Create(IMG_W, IMG_H, imgut.MODE_RGB)
@@ -28,7 +28,8 @@ func testRepr(initFunc func(maxDep int) *node.Node, mutateFunc func(float64, *no
 	// Build random individuals
 	randomIndividuals := make([]*node.Node, N)
 	// For each individual
-	var exprError float64 = 0
+	var exprErrorAvg float64 = 0
+	var exprErrorVar float64 = 0
 	for _, i := range randomIndividuals {
 		// Initialize it
 		i = initFunc(MAX_D)
@@ -69,22 +70,26 @@ func testRepr(initFunc func(maxDep int) *node.Node, mutateFunc func(float64, *no
 		indErrorAvg = indErrorAvg / float64(M)
 		// Compute variance
 		indErrorVar = indErrorVar - (indErrorAvg * indErrorAvg)
-		fmt.Println("Individual avg error and variance:", indErrorAvg, indErrorVar)
+		fmt.Println("  Individual avg error and variance:", indErrorAvg, indErrorVar)
 
-		// Accumulate
-		exprError += indErrorAvg
+		// Accumulate error
+		exprErrorAvg += indErrorAvg
+		exprErrorVar += indErrorAvg * indErrorAvg
 	}
-	return exprError / float64(N)
+	// Compute average error of the averages
+	avgErr = exprErrorAvg / float64(N)
+	// Compute variance of the averages
+	varErr = exprErrorVar - (avgErr * avgErr)
+
+	return
 }
 
 func main() {
-	rand.Seed(time.Now().UTC().UnixNano())
-	// For each representation
-	//   Build N individuals (e.g. 10000)
-	//   For each individual i
-	//     Mutate i M times (e.g. 50), yielding j_k
-	//     Compute avg (over k) distance between i and j_k
+	seed := time.Now().UTC().UnixNano()
+	rand.Seed(seed)
+	fmt.Println("Using seed:", seed)
 
+	// Test expr
 	// The initialization function creates a tree with specified max depth
 	// And it's a closure over the primitives
 	exprInit := func(maxDep int) *node.Node {
@@ -92,23 +97,24 @@ func main() {
 	}
 	exprMutate := node.MakeSubtreeMutation(MAX_D, exprInit)
 	fmt.Println("Testing representation: expr")
-	exprError := testRepr(exprInit, exprMutate, expr.Draw)
-	fmt.Println("Expr total error:", exprError)
+	exprErrorAvg, exprErrorVar := testRepr(exprInit, exprMutate, expr.Draw)
+	fmt.Println("expr error avg:", exprErrorAvg, "var:", exprErrorVar)
 
+	// Test ts
 	tsInit := func(maxDep int) *node.Node {
 		return node.MakeTreeHalfAndHalf(maxDep, ts.Functionals, ts.Terminals)
 	}
 	tsMutate := node.MakeSubtreeMutation(MAX_D, tsInit)
 	fmt.Println("Testing representation: TS")
-	tsError := testRepr(tsInit, tsMutate, ts.Draw)
-	fmt.Println("TS total error:", tsError)
+	tsErrorAvg, tsErrorVar := testRepr(tsInit, tsMutate, ts.Draw)
+	fmt.Println("TS error avg:", tsErrorAvg, "var:", tsErrorVar)
 
+	// Test vhs
 	vhsInit := func(maxDep int) *node.Node {
 		return node.MakeTreeHalfAndHalf(maxDep, vhs.Functionals, vhs.Terminals)
 	}
 	vhsMutate := node.MakeSubtreeMutation(MAX_D, vhsInit)
 	fmt.Println("Testing representation: VHS")
-	vhsError := testRepr(vhsInit, vhsMutate, vhs.Draw)
-	fmt.Println("VHS total error:", vhsError)
-
+	vhsErrorAvg, vhsErrorVar := testRepr(vhsInit, vhsMutate, vhs.Draw)
+	fmt.Println("VHS error avg:", vhsErrorAvg, "var:", vhsErrorVar)
 }
