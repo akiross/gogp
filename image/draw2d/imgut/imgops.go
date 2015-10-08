@@ -126,6 +126,18 @@ func (i *Image) FillSurface(col ...float64) {
 	i.FillRect(0, 0, float64(i.W), float64(i.H), col...)
 }
 
+// Copy image onto the target image, at specified position
+func (i *Image) Blit(x, y int, target *Image) {
+	destPoint := image.Pt(x, y)
+	destRect := image.Rectangle{destPoint, destPoint.Add(image.Pt(i.W, i.H))}
+	draw.Draw(target.Surf, destRect, i.Surf, image.ZP, draw.Src)
+}
+
+// Clear the image filling with black
+func (i *Image) Clear() {
+	draw.Draw(i.Surf, i.Surf.Bounds(), image.Transparent, image.ZP, draw.Src)
+}
+
 type PixelFunc func(x, y int) float64
 
 // Fill the image evaluating the function over each pixel
@@ -192,5 +204,33 @@ func PixelDistance(i1, i2 *Image) (rmse float64) {
 	// BUG(akiross) in the python version this is not normalized, but it should be!! For now, use un-normalized version to compare results, later fix this bug
 	// ind.fitness = gogp.Fitness(math.Sqrt(dist / float64(count)))
 	rmse = math.Sqrt(rmse)
+	return
+}
+
+// Compute the distance between two images, pixel by pixel (RSME)
+func PixelRMSE(i1, i2 *Image) (rmse float64) {
+	// BUG(akiross) Only RGBA is supported
+	// Check that sizes are the same
+	im1, im2 := i1.Surf, i2.Surf
+	if im1.Bounds() != im2.Bounds() {
+		fmt.Println("ERROR! Cannot compute distances for different sizes", im1.Bounds(), im2.Bounds())
+		return
+	}
+	// Compute the distance
+	var count int
+	rmse = 0
+	b := im1.Bounds()
+	cm1, cm2 := im1.ColorModel(), im2.ColorModel()
+	for i := b.Min.Y; i < b.Max.Y; i++ {
+		for j := b.Min.X; j < b.Max.X; j++ {
+			// In the python version this is not normalized, but I think it should be for precision issues
+			px1, px2 := im1.At(j, i), im2.At(j, i)
+			gr1, gr2 := cm1.Convert(px1).(color.RGBA), cm2.Convert(px2).(color.RGBA)
+			diff := (float64(gr1.R) - float64(gr2.R)) // / 255.0
+			rmse += diff * diff
+			count++
+		}
+	}
+	rmse = math.Sqrt(rmse / float64(count))
 	return
 }

@@ -65,6 +65,24 @@ func MakeTreeGrow(maxH int, funcs, terms []gp.Primitive) *Node {
 	return makeTree(maxH, funcs, terms, growStrategy)
 }
 
+// Builds a tree using the grow method, but pick 50-50 funcs and terms
+func MakeTreeGrowBalanced(maxH int, funcs, terms []gp.Primitive) *Node {
+	growBalStrategy := func(depth, nFuncs, nTerms int) (isFunc bool, k int) {
+		if depth == 0 {
+			return false, rand.Intn(nTerms)
+		} else {
+			if rand.Intn(2) == 0 {
+				// Pick a random functional
+				return true, rand.Intn(nFuncs)
+			} else {
+				// Pick a random terminal
+				return false, rand.Intn(nTerms)
+			}
+		}
+	}
+	return makeTree(maxH, funcs, terms, growBalStrategy)
+}
+
 // Builds a tree using the full method
 func MakeTreeFull(maxH int, funcs, terms []gp.Primitive) *Node {
 	fullStrategy := func(depth, nFuncs, nTerms int) (isFunc bool, k int) {
@@ -81,9 +99,9 @@ func MakeTreeFull(maxH int, funcs, terms []gp.Primitive) *Node {
 // It's not the ramped version: it just uses grow or full with 50% chances
 func MakeTreeHalfAndHalf(maxH int, funcs, terms []gp.Primitive) *Node {
 	if rand.Intn(2) == 0 {
-		return MakeTreeFull(maxH, funcs, terms)
+		return MakeTreeGrowBalanced(maxH, funcs, terms)
 	} else {
-		return MakeTreeGrow(maxH, funcs, terms)
+		return MakeTreeFull(maxH, funcs, terms)
 	}
 }
 
@@ -110,8 +128,12 @@ func CompileTree(root *Node) gp.Primitive {
 // Mutate the tree by changing one single node with an equivalent one in arity
 // funcs is the set of functionals (internal nodes)
 // terms is the set of terminals (leaves)
-func MakeTreeNodeMutation(funcs, terms []gp.Primitive) func(*Node) {
-	return func(t1 *Node) {
+func MakeTreeSingleMutation(funcs, terms []gp.Primitive) func(float64, *Node) {
+	return func(pMut float64, t1 *Node) {
+		// Check if it's necessary to mutate the node
+		if rand.Float64() >= pMut {
+			return
+		}
 		// Get a slice with the nodes
 		nodes, _, _ := t1.Enumerate()
 		size := len(nodes)
@@ -136,9 +158,42 @@ func MakeTreeNodeMutation(funcs, terms []gp.Primitive) func(*Node) {
 	}
 }
 
+// Go over each node and randomly mutate it with a compatible one
+func MakeTreeNodeMutation(funcs, terms []gp.Primitive) func(float64, *Node) {
+	// Build a map of primitives by arity
+	prims := make(map[int][]gp.Primitive)
+	for i := range funcs {
+		arity := funcs[i].Arity()
+		if _, ok := prims[arity]; ok {
+			prims[i] = append(prims[i], funcs[i])
+		} else {
+			prims[i] = make([]gp.Primitive, 1)
+			prims[i][0] = funcs[i]
+		}
+	}
+	// Terminals have arity -1
+	prims[-1] = terms
+
+	return func(pMut float64, t1 *Node) {
+		// Get a slice with the nodes
+		nodes, _, _ := t1.Enumerate()
+		for i := range nodes {
+			// For each node, check if it should be mutated
+			if rand.Float64() < pMut {
+				continue
+			}
+			// If mutation occurs, pick a random node of same arity
+			arity := nodes[i].value.Arity()
+			nid := rand.Intn(len(prims[arity]))
+			nodes[i].value = prims[arity][nid]
+		}
+	}
+}
+
 // Randomly select two subrees and swap them
-func MakeSubtreeSwapMutation(funcs, terms []gp.Primitive) func(*Node) {
-	return func(t *Node) {
+func MakeSubtreeSwapMutation(funcs, terms []gp.Primitive) func(float64, *Node) {
+	return func(pMut float64, t *Node) {
+		panic("NOT IMPLEMENTED YET")
 	}
 }
 
@@ -150,17 +205,20 @@ func swapNodes(n1, n2 *Node) {
 
 // Replaces a randomly selected subtree with another randomly created subtree
 // maxH describes the maximum height of the resulting tree
-func MakeSubtreeMutation(maxH int, genFunction func(maxH int) *Node) func(*Node) {
-	return func(t *Node) {
+func MakeSubtreeMutation(maxH int, genFunction func(maxH int) *Node) func(float64, *Node) {
+	return func(pMut float64, t *Node) {
+		// Check if mutation is necessary
+		if rand.Float64() >= pMut {
+			return
+		}
+
 		// Get a slice with the nodes
-		tNodes, _, tHeights := t.Enumerate()
+		tNodes, tDepths, tHeights := t.Enumerate()
 		size := len(tNodes)
 		// Pick a random node
 		nid := rand.Intn(size)
-
-		// The random tree may have, at most, the
-		hLimit := maxH - tHeights[nid]
-
+		// The random tree cannot make tree larger
+		hLimit := maxH - tDepths[nid] - tHeights[nid]
 		// Build the replacement
 		replacement := genFunction(hLimit)
 		// Swap the content of the nodes
@@ -182,8 +240,13 @@ func intMax(n ...int) int {
 */
 
 // Height-limited crossover, to prevent bloating
-func MakeTree1pCrossover(maxDepth int) func(*Node, *Node) {
-	return func(t1, t2 *Node) {
+func MakeTree1pCrossover(maxDepth int) func(float64, *Node, *Node) {
+	return func(pCross float64, t1, t2 *Node) {
+		// Check if crossover is necessary
+		if rand.Float64() >= pCross {
+			return
+		}
+
 		// Get the slices for the trees, including node heights
 		t1Nodes, t1Depths, t1Heights := t1.Enumerate()
 		t2Nodes, t2Depths, t2Heights := t2.Enumerate()

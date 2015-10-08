@@ -6,7 +6,6 @@ import (
 	"github.com/akiross/gogp/gp"
 	"github.com/akiross/gogp/image/draw2d/imgut"
 	"github.com/akiross/gogp/node"
-	"math/rand"
 )
 
 type Settings struct {
@@ -24,8 +23,8 @@ type Settings struct {
 	Draw func(*Individual, *imgut.Image)
 
 	// Operators used in evolution
-	CrossOver func(*node.Node, *node.Node)
-	Mutate    func(*node.Node)
+	CrossOver func(float64, *node.Node, *node.Node)
+	Mutate    func(float64, *node.Node)
 }
 
 type Individual struct {
@@ -39,15 +38,16 @@ func (ind *Individual) String() string {
 	return fmt.Sprint(ind.Node)
 }
 
+func (ind *Individual) Fitness() ga.Fitness {
+	return ind.fitness
+}
+
 func (ind *Individual) Copy() ga.Individual {
 	return &Individual{ind.Node.Copy(), ind.fitness, ind.fitIsValid, ind.set}
 }
 
 func (ind *Individual) Crossover(pCross float64, mate ga.Individual) {
-	if rand.Float64() >= pCross {
-		return
-	}
-	ind.set.CrossOver(ind.Node, mate.(*Individual).Node)
+	ind.set.CrossOver(pCross, ind.Node, mate.(*Individual).Node)
 	ind.fitIsValid, mate.(*Individual).fitIsValid = false, false
 }
 
@@ -72,9 +72,6 @@ func (ind *Individual) Initialize() {
 
 // BUG(akiross) the mutation used here replaces a single, random.Node with an equivalent one - same as in DEAP - but we should go over each.Node and apply mutation probability
 func (ind *Individual) Mutate(pMut float64) {
-	if rand.Float64() >= pMut {
-		return
-	}
-	ind.set.Mutate(ind.Node)
+	ind.set.Mutate(pMut, ind.Node)
 	ind.fitIsValid = false
 }

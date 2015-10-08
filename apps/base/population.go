@@ -2,6 +2,7 @@ package base
 
 import (
 	"github.com/akiross/gogp/ga"
+	"github.com/akiross/gogp/image/draw2d/imgut"
 	"math/rand"
 )
 
@@ -16,7 +17,7 @@ func (e *ParamError) Error() string {
 type Population struct {
 	best      *Individual
 	Pop       []*Individual
-	ops       *Settings
+	Set       *Settings
 	TournSize int
 	ga.MinProblem
 }
@@ -48,9 +49,30 @@ func (pop *Population) Evaluate() (fitnessEval int) {
 }
 
 func (pop *Population) Initialize(n int) {
+	// Save the maxDepth
+	origMaxDepth := pop.Set.MaxDepth
+
+	// Divide the pop
+	indPerSlice := n / origMaxDepth
+
 	pop.Pop = make([]*Individual, n)
-	for i := range pop.Pop {
+	i := 0
+
+	// Ramped initialization (change max depth)
+	for d := 1; d <= pop.Set.MaxDepth; d++ {
+		// Set the depth
+		pop.Set.MaxDepth = d
+		// Initialize the pop
+		for j := 0; j < indPerSlice; j++ {
+			pop.Pop[i] = new(Individual)
+			pop.Pop[i].set = pop.Set
+			pop.Pop[i].Initialize()
+			i += 1
+		}
+	}
+	for ; i < n; i++ {
 		pop.Pop[i] = new(Individual)
+		pop.Pop[i].set = pop.Set
 		pop.Pop[i].Initialize()
 	}
 }
@@ -75,4 +97,23 @@ func (pop *Population) Select(n int) ([]ga.Individual, error) {
 		newPop[i] = &Individual{best.Node.Copy(), best.fitness, best.fitIsValid, best.set}
 	}
 	return newPop, nil
+}
+
+// Population sorting by fitness
+func (pop *Population) Len() int      { return pop.Size() }
+func (pop *Population) Swap(i, j int) { pop.Pop[i], pop.Pop[j] = pop.Pop[j], pop.Pop[i] }
+func (pop *Population) Less(i, j int) bool {
+	fi, fj := pop.Pop[i].fitness, pop.Pop[j].fitness
+	return pop.BetterThan(fi, fj)
+}
+
+func (pop *Population) Draw(img *imgut.Image, cols, rows int) {
+	// From best to worst, draw the images
+	for i := range pop.Pop {
+		// Draw individual on temporary surface
+		pop.Pop[i].Draw(pop.Set.ImgTemp)
+		// Copy temporary surface to position
+		r, c := i/cols, i%cols
+		pop.Set.ImgTemp.Blit(c*pop.Set.ImgTemp.W, r*pop.Set.ImgTemp.H, img)
+	}
 }

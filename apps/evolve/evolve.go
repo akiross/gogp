@@ -8,10 +8,12 @@ import (
 	"github.com/akiross/gogp/gp"
 	"github.com/akiross/gogp/image/draw2d/imgut"
 	"github.com/akiross/gogp/node"
+	"math"
 	"math/rand"
 	"os"
 	"runtime"
 	"runtime/pprof" // profiling...
+	"sort"
 	"time"
 )
 
@@ -86,10 +88,14 @@ func Evolve(calcMaxDepth func(*imgut.Image) int, fun, ter []gp.Primitive, drawfu
 
 	// Create temporary surface, of same size and mode
 	settings.ImgTemp = imgut.Create(settings.ImgTarget.W, settings.ImgTarget.H, settings.ImgTarget.ColorSpace)
+	// Create temporary surface for the entire population
+	pImgCols := int(math.Ceil(math.Sqrt(float64(*popSize))))
+	pImgRows := int(math.Ceil(float64(*popSize) / float64(pImgCols)))
+	imgTempPop := imgut.Create(pImgCols*settings.ImgTarget.W, pImgRows*settings.ImgTarget.H, settings.ImgTarget.ColorSpace)
 
 	// Define the operators
 	settings.CrossOver = node.MakeTree1pCrossover(settings.MaxDepth)
-	settings.Mutate = node.MakeTreeNodeMutation(settings.Functionals, settings.Terminals)
+	settings.Mutate = node.MakeTreeSingleMutation(settings.Functionals, settings.Terminals)
 
 	// Seed rng
 	if !*quiet {
@@ -102,6 +108,7 @@ func Evolve(calcMaxDepth func(*imgut.Image) int, fun, ter []gp.Primitive, drawfu
 
 	// Build population
 	pop := new(base.Population)
+	pop.Set = &settings
 	pop.TournSize = *tournSize
 	pop.Initialize(*popSize)
 
@@ -137,27 +144,43 @@ func Evolve(calcMaxDepth func(*imgut.Image) int, fun, ter []gp.Primitive, drawfu
 			}
 
 		} else {
+			// Parallel pipeline
 			chSel := ga.GenSelect(pop, len(pop.Pop))
 			chXo1, chXo2, chXo3, chXo4 := ga.GenCrossover(chSel, *pCross), ga.GenCrossover(chSel, *pCross), ga.GenCrossover(chSel, *pCross), ga.GenCrossover(chSel, *pCross)
 			chMut1, chMut2, chMut3, chMut4 := ga.GenMutate(chXo1, *pMut), ga.GenMutate(chXo2, *pMut), ga.GenMutate(chXo3, *pMut), ga.GenMutate(chXo4, *pMut)
 			sel = ga.Collector(ga.FanIn(chMut1, chMut2, chMut3, chMut4), len(pop.Pop))
 		}
 
-		// Update samples
-		if g%*saveInterval == 0 {
-			snapName := fmt.Sprintf("%v/snapshot/%v-snapshot-%v.png", basedir, basename, snapshot)
-			if !*quiet {
-				fmt.Println("Saving best individual snapshot", snapName)
-				fmt.Println(pop.BestIndividual())
-			}
-			pop.BestIndividual().(*base.Individual).Draw(settings.ImgTemp)
-			settings.ImgTemp.WritePNG(snapName)
-			snapshot++
-		}
-
 		// Replace old population
 		for i := range sel {
 			pop.Pop[i] = sel[i].(*base.Individual)
+		}
+
+		// Update samples
+		if g%*saveInterval == 0 {
+			// Sort population, to easy reading when printing and drawing
+			sort.Sort(pop)
+			// Save snapshot
+			snapName := fmt.Sprintf("%v/snapshot/%v-snapshot-%v.png", basedir, basename, snapshot)
+			snapPopName := fmt.Sprintf("%v/snapshot/%v-pop_snapshot-%v.png", basedir, basename, snapshot)
+			if !*quiet {
+				fmt.Println("Saving best individual snapshot", snapName)
+				fmt.Println(pop.BestIndividual())
+				// Print the fitnesses for each individual
+				//				for kk := range pop.Pop {
+				//		fmt.Println(kk, "-th individual has fitness", pop.Pop[kk].Fitness())
+				//		}
+				//				fmt.Println("Saving pop snapshot", snapPopName)
+				//				fmt.Println(pop)
+			}
+			// Save best individual
+			pop.BestIndividual().(*base.Individual).Draw(settings.ImgTemp)
+			settings.ImgTemp.WritePNG(snapName)
+			// Save pop images
+			pop.Draw(imgTempPop, pImgCols, pImgRows)
+			imgTempPop.WritePNG(snapPopName)
+			// Increment snapshot count
+			snapshot++
 		}
 	}
 	fitnessEval := pop.Evaluate()
