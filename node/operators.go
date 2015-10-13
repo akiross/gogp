@@ -190,17 +190,30 @@ func MakeTreeNodeMutation(funcs, terms []gp.Primitive) func(float64, *Node) {
 	}
 }
 
-// Randomly select two subrees and swap them
-func MakeSubtreeSwapMutation(funcs, terms []gp.Primitive) func(float64, *Node) {
-	return func(pMut float64, t *Node) {
-		panic("NOT IMPLEMENTED YET")
-	}
-}
-
 // Swap node contents
 func swapNodes(n1, n2 *Node) {
 	n1.value, n2.value = n2.value, n1.value
 	n1.children, n2.children = n2.children, n1.children
+}
+
+// Randomly select two subrees and swap them
+func MakeSubtreeSwapMutation(funcs, terms []gp.Primitive) func(float64, *Node) {
+	return func(pMut float64, t *Node) {
+		// The tricky part is to pick two subtrees that are distinct
+		// i.e. we do not want that one tree is subtree of the other
+		// How? We can get a list of nodes and pick one, then
+		// we remove children and granchildren from the list, and also
+		// the parents. We then pick another tree from nodes left
+
+		// Get the list of nodes
+		//nodes, _, _ := t.Enumerate()
+		// Get a random node
+		//n1 := rand.Intn(len(nodes))
+		// Enumerate unpickable nodes
+		//unpickable, _, _ := nodes[n1].Enumerate()
+		// Trovare i genitori non è veloce... Non c'é puntatore al parent!
+		panic("NOT IMPLEMENTED YET")
+	}
 }
 
 // Replaces a randomly selected subtree with another randomly created subtree

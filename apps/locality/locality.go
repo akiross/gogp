@@ -12,8 +12,8 @@ import (
 )
 
 const (
-	N     = 1000
-	M     = 50
+	N     = 10
+	M     = 10
 	MAX_D = 8
 	IMG_W = 100
 	IMG_H = 100
@@ -28,8 +28,8 @@ func testRepr(initFunc func(maxDep int) *node.Node, mutateFunc func(float64, *no
 	// Build random individuals
 	randomIndividuals := make([]*node.Node, N)
 	// For each individual
-	var exprErrorAvg float64 = 0
-	var exprErrorVar float64 = 0
+	var totErrorSum float64 = 0
+	var totErrorSqr float64 = 0
 	for _, i := range randomIndividuals {
 		// Initialize it
 		i = initFunc(MAX_D)
@@ -37,50 +37,38 @@ func testRepr(initFunc func(maxDep int) *node.Node, mutateFunc func(float64, *no
 		indImage.Clear()
 		paintFunc(i, indImage)
 		// Average error for this individual
-		var indErrorAvg float64 = 0
-		var indErrorVar float64 = 0
+		var indErrorSum float64 = 0
+		var indErrorSqr float64 = 0
 		for k := 0; k < M; k++ {
 			// Copy the individual
 			j := i.Copy()
 			// Mutate the individual
 			mutateFunc(1, j)
-
-			//////////////////////////////////////////////////
-			// FIXME TODO this should be removed in production: test that original is not changed
-			tmpImage.Clear()
-			paintFunc(i, tmpImage)
-			// Check distance
-			d := imgut.PixelDistance(indImage, tmpImage)
-			if d != 0 {
-				fmt.Println("ERROR! Distance of i to itself is not zero!", d)
-				panic("STOPPING TO DEBUG")
-			}
-			//////////////////////////////////////////////////
-
 			// Render it to another image
 			tmpImage.Clear()
 			paintFunc(j, tmpImage)
 			// Compute distance
 			dist := imgut.PixelRMSE(indImage, tmpImage)
 			// Accumulate distance
-			indErrorAvg += dist
-			indErrorVar += dist * dist
+			indErrorSum += dist
+			indErrorSqr += dist * dist
 		}
 		// Compute average error
-		indErrorAvg = indErrorAvg / float64(M)
+		indErrorAvg := indErrorSum / float64(M)
 		// Compute variance
-		indErrorVar = indErrorVar - (indErrorAvg * indErrorAvg)
+		indErrorVar := indErrorSqr/float64(M) - (indErrorAvg * indErrorAvg)
 		fmt.Println("  Individual avg error and variance:", indErrorAvg, indErrorVar)
 
 		// Accumulate error
-		exprErrorAvg += indErrorAvg
-		exprErrorVar += indErrorAvg * indErrorAvg
+		totErrorSum += indErrorAvg
+		totErrorSqr += indErrorAvg * indErrorAvg
 	}
 	// Compute average error of the averages
-	avgErr = exprErrorAvg / float64(N)
+	avgErr = totErrorSum / float64(N)
 	// Compute variance of the averages
-	varErr = exprErrorVar - (avgErr * avgErr)
+	varErr = totErrorSqr/float64(N) - (avgErr * avgErr)
 
+	fmt.Println("Total error and var:", avgErr, varErr)
 	return
 }
 
