@@ -35,6 +35,7 @@ func Evolve(calcMaxDepth func(*imgut.Image) int, fun, ter []gp.Primitive, drawfu
 	pCross := flag.Float64("C", 0.8, "Crossover probability")
 	pMut := flag.Float64("M", 0.1, "Bit mutation probability")
 	quiet := flag.Bool("q", false, "Quiet mode")
+	//nps := flag.Bool("nps", false, "Disable population snapshot (no-pop-snap)")
 	targetPath := flag.String("t", "", "Target image (PNG) path")
 	var basedir, basename string
 	cpuProfile := flag.String("cpuprofile", "", "Write CPU profile to file")

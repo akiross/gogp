@@ -128,11 +128,11 @@ func CompileTree(root *Node) gp.Primitive {
 // Mutate the tree by changing one single node with an equivalent one in arity
 // funcs is the set of functionals (internal nodes)
 // terms is the set of terminals (leaves)
-func MakeTreeSingleMutation(funcs, terms []gp.Primitive) func(float64, *Node) {
-	return func(pMut float64, t1 *Node) {
+func MakeTreeSingleMutation(funcs, terms []gp.Primitive) func(float64, *Node) bool {
+	return func(pMut float64, t1 *Node) bool {
 		// Check if it's necessary to mutate the node
 		if rand.Float64() >= pMut {
-			return
+			return false // Didn't mutate
 		}
 		// Get a slice with the nodes
 		nodes, _, _ := t1.Enumerate()
@@ -155,11 +155,12 @@ func MakeTreeSingleMutation(funcs, terms []gp.Primitive) func(float64, *Node) {
 			// Replace node with a random one
 			nodes[nid].value = sameArityFuncs[rand.Intn(len(sameArityFuncs))]
 		}
+		return true
 	}
 }
 
 // Go over each node and randomly mutate it with a compatible one
-func MakeTreeNodeMutation(funcs, terms []gp.Primitive) func(float64, *Node) {
+func MakeTreeNodeMutation(funcs, terms []gp.Primitive) func(float64, *Node) bool {
 	// Build a map of primitives by arity
 	prims := make(map[int][]gp.Primitive)
 	for i := range funcs {
@@ -174,9 +175,10 @@ func MakeTreeNodeMutation(funcs, terms []gp.Primitive) func(float64, *Node) {
 	// Terminals have arity -1
 	prims[-1] = terms
 
-	return func(pMut float64, t1 *Node) {
+	return func(pMut float64, t1 *Node) bool {
 		// Get a slice with the nodes
 		nodes, _, _ := t1.Enumerate()
+		mutCount := 0
 		for i := range nodes {
 			// For each node, check if it should be mutated
 			if rand.Float64() < pMut {
@@ -186,7 +188,9 @@ func MakeTreeNodeMutation(funcs, terms []gp.Primitive) func(float64, *Node) {
 			arity := nodes[i].value.Arity()
 			nid := rand.Intn(len(prims[arity]))
 			nodes[i].value = prims[arity][nid]
+			mutCount += 1
 		}
+		return mutCount != 0
 	}
 }
 
@@ -197,8 +201,8 @@ func swapNodes(n1, n2 *Node) {
 }
 
 // Randomly select two subrees and swap them
-func MakeSubtreeSwapMutation(funcs, terms []gp.Primitive) func(float64, *Node) {
-	return func(pMut float64, t *Node) {
+func MakeSubtreeSwapMutation(funcs, terms []gp.Primitive) func(float64, *Node) bool {
+	return func(pMut float64, t *Node) bool {
 		// The tricky part is to pick two subtrees that are distinct
 		// i.e. we do not want that one tree is subtree of the other
 		// How? We can get a list of nodes and pick one, then
@@ -213,16 +217,17 @@ func MakeSubtreeSwapMutation(funcs, terms []gp.Primitive) func(float64, *Node) {
 		//unpickable, _, _ := nodes[n1].Enumerate()
 		// Trovare i genitori non è veloce... Non c'é puntatore al parent!
 		panic("NOT IMPLEMENTED YET")
+		return false
 	}
 }
 
 // Replaces a randomly selected subtree with another randomly created subtree
 // maxH describes the maximum height of the resulting tree
-func MakeSubtreeMutation(maxH int, genFunction func(maxH int) *Node) func(float64, *Node) {
-	return func(pMut float64, t *Node) {
+func MakeSubtreeMutation(maxH int, genFunction func(maxH int) *Node) func(float64, *Node) bool {
+	return func(pMut float64, t *Node) bool {
 		// Check if mutation is necessary
 		if rand.Float64() >= pMut {
-			return
+			return false
 		}
 
 		// Get a slice with the nodes
@@ -237,6 +242,7 @@ func MakeSubtreeMutation(maxH int, genFunction func(maxH int) *Node) func(float6
 		// Swap the content of the nodes
 		swapNodes(tNodes[nid], replacement)
 		// Replacement is discarded
+		return true
 	}
 }
 
@@ -253,11 +259,11 @@ func intMax(n ...int) int {
 */
 
 // Height-limited crossover, to prevent bloating
-func MakeTree1pCrossover(maxDepth int) func(float64, *Node, *Node) {
-	return func(pCross float64, t1, t2 *Node) {
+func MakeTree1pCrossover(maxDepth int) func(float64, *Node, *Node) bool {
+	return func(pCross float64, t1, t2 *Node) bool {
 		// Check if crossover is necessary
 		if rand.Float64() >= pCross {
-			return
+			return false
 		}
 
 		// Get the slices for the trees, including node heights
@@ -301,5 +307,7 @@ func MakeTree1pCrossover(maxDepth int) func(float64, *Node, *Node) {
 		// Swap the nodes in the parent, so that references to nodes will be valid
 		// Swap the content of the nodes (so, we can swap also roots)
 		swapNodes(t1Nodes[rn1], t2Nodes[rn2])
+		// Return true on successful crossover
+		return true
 	}
 }

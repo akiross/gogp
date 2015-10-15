@@ -56,10 +56,10 @@ func (pop *Population) Initialize(n int) {
 	indPerSlice := n / origMaxDepth
 
 	pop.Pop = make([]*Individual, n)
-	i := 0
+	i := 0 // Initialized individuals
 
 	// Ramped initialization (change max depth)
-	for d := 1; d <= pop.Set.MaxDepth; d++ {
+	for d := 1; d <= origMaxDepth; d++ {
 		// Set the depth
 		pop.Set.MaxDepth = d
 		// Initialize the pop
@@ -70,6 +70,7 @@ func (pop *Population) Initialize(n int) {
 			i += 1
 		}
 	}
+	// Add the missing in the last slice
 	for ; i < n; i++ {
 		pop.Pop[i] = new(Individual)
 		pop.Pop[i].set = pop.Set

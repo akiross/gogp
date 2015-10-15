@@ -23,8 +23,8 @@ type Settings struct {
 	Draw func(*Individual, *imgut.Image)
 
 	// Operators used in evolution
-	CrossOver func(float64, *node.Node, *node.Node)
-	Mutate    func(float64, *node.Node)
+	CrossOver func(float64, *node.Node, *node.Node) bool
+	Mutate    func(float64, *node.Node) bool
 }
 
 type Individual struct {
@@ -47,8 +47,9 @@ func (ind *Individual) Copy() ga.Individual {
 }
 
 func (ind *Individual) Crossover(pCross float64, mate ga.Individual) {
-	ind.set.CrossOver(pCross, ind.Node, mate.(*Individual).Node)
-	ind.fitIsValid, mate.(*Individual).fitIsValid = false, false
+	if ind.set.CrossOver(pCross, ind.Node, mate.(*Individual).Node) {
+		ind.fitIsValid, mate.(*Individual).fitIsValid = false, false
+	}
 }
 
 func (ind *Individual) Draw(img *imgut.Image) {
@@ -72,6 +73,7 @@ func (ind *Individual) Initialize() {
 
 // BUG(akiross) the mutation used here replaces a single, random.Node with an equivalent one - same as in DEAP - but we should go over each.Node and apply mutation probability
 func (ind *Individual) Mutate(pMut float64) {
-	ind.set.Mutate(pMut, ind.Node)
-	ind.fitIsValid = false
+	if ind.set.Mutate(pMut, ind.Node) {
+		ind.fitIsValid = false
+	}
 }

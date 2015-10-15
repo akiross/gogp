@@ -46,7 +46,7 @@ func MaxDepth(img *imgut.Image) int {
 
 func init() {
 	// Build some colors
-	count := 16
+	count := 8
 	for i := 1; i < count; i++ {
 		c := float64(i) / float64(count)
 		Terminals = append(Terminals, vhs.Terminal(vhs.Filler(c, c, c, 1)))
