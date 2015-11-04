@@ -12,8 +12,8 @@ import (
 )
 
 const (
-	N     = 10
-	M     = 10
+	N     = 1000
+	M     = 50
 	MAX_D = 8
 	IMG_W = 100
 	IMG_H = 100
