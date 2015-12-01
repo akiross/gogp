@@ -9,7 +9,7 @@ type Fitness float64
 type Individual interface {
 	Copy() Individual              // Copy the individual
 	Crossover(float64, Individual) // Crossover with given probability
-	Evaluate()                     // Evaluate and cache fitness
+	Evaluate() Fitness             // Evaluate, cache and return fitness
 	FitnessValid() bool            // True if fitness is valid
 	Initialize()                   // Be initializable
 	Mutate(p float64)              // Mutate with given probability

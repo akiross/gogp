@@ -44,15 +44,15 @@ func MaxDepth(img *imgut.Image) int {
 	// If the image has P pixels, we want to pick the smallest n such that 4^n > P -> n > log_2(P)/2
 	md := int(math.Log2(float64(img.W*img.H))/2) + 1
 	// Limit height to 4, to avoid trees with too many nodes
-	if md > 6 {
-		return 6
+	if md > 10 {
+		return 10
 	}
 	return md
 }
 
 func init() {
 	// Build some colors
-	count := 8
+	count := 16
 	for i := 1; i < count; i++ {
 		c := float64(i) / float64(count)
 		Terminals = append(Terminals, ts.Terminal(ts.Filler(c, c, c, 1)))

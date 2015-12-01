@@ -95,7 +95,7 @@ func (pop *Population) Select(n int) ([]ga.Individual, error) {
 				best = maybe
 			}
 		}
-		newPop[i] = &Individual{best.Node.Copy(), best.fitness, best.fitIsValid, best.set}
+		newPop[i] = best.Copy() //&Individual{best.Node.Copy(), best.fitness, best.fitIsValid, best.set}
 	}
 	return newPop, nil
 }
@@ -111,10 +111,12 @@ func (pop *Population) Less(i, j int) bool {
 func (pop *Population) Draw(img *imgut.Image, cols, rows int) {
 	// From best to worst, draw the images
 	for i := range pop.Pop {
+		imgPtr := pop.Pop[i].ImgTemp //pop.Set.ImgTemp)
 		// Draw individual on temporary surface
-		pop.Pop[i].Draw(pop.Set.ImgTemp)
+		pop.Pop[i].Draw(imgPtr)
 		// Copy temporary surface to position
 		r, c := i/cols, i%cols
-		pop.Set.ImgTemp.Blit(c*pop.Set.ImgTemp.W, r*pop.Set.ImgTemp.H, img)
+		imgPtr.Blit(c*imgPtr.W, r*imgPtr.H, img)
+		//		pop.Set.ImgTemp.Blit(c*pop.Set.ImgTemp.W, r*pop.Set.ImgTemp.H, img)
 	}
 }

@@ -44,15 +44,15 @@ func Draw(ind *node.Node, img *imgut.Image) {
 	exec := node.CompileTree(ind).(binary.Terminal)
 	// Apply the function
 	//	exec(0 0, float64(img.W), float64(img.H), img)
-	var call imgut.PixelFunc = func(x, y int) float64 {
+	var call imgut.PixelFunc = func(x, y float64) float64 {
 		return float64(exec(binary.NumericIn(x), binary.NumericIn(y)))
 	}
-	img.FillMath(call)
+	img.FillMathBounds(call)
 }
 
 func MaxDepth(img *imgut.Image) int {
 	// Depth is fixed, we cannot get a "feature size" depending on image size
-	return 6
+	return 10
 }
 
 func init() {

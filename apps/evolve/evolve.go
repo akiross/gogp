@@ -4,6 +4,7 @@ import (
 	"flag"
 	"fmt"
 	"github.com/akiross/gogp/apps/base"
+	"github.com/akiross/gogp/apps/stats"
 	"github.com/akiross/gogp/ga"
 	"github.com/akiross/gogp/gp"
 	"github.com/akiross/gogp/image/draw2d/imgut"
@@ -13,7 +14,6 @@ import (
 	"os"
 	"runtime"
 	"runtime/pprof" // profiling...
-	"sort"
 	"time"
 )
 
@@ -35,6 +35,7 @@ func Evolve(calcMaxDepth func(*imgut.Image) int, fun, ter []gp.Primitive, drawfu
 	pCross := flag.Float64("C", 0.8, "Crossover probability")
 	pMut := flag.Float64("M", 0.1, "Bit mutation probability")
 	quiet := flag.Bool("q", false, "Quiet mode")
+	//advStats := flag.Bool("stats", false, "Enable advanced statistics")
 	//nps := flag.Bool("nps", false, "Disable population snapshot (no-pop-snap)")
 	targetPath := flag.String("t", "", "Target image (PNG) path")
 	var basedir, basename string
@@ -59,6 +60,8 @@ func Evolve(calcMaxDepth func(*imgut.Image) int, fun, ter []gp.Primitive, drawfu
 		basedir = args[0]
 		basename = args[1]
 	}
+
+	sta := stats.Create(basedir, basename)
 
 	if *cpuProfile != "" {
 		f, err := os.Create(*cpuProfile)
@@ -88,7 +91,7 @@ func Evolve(calcMaxDepth func(*imgut.Image) int, fun, ter []gp.Primitive, drawfu
 	}
 
 	// Create temporary surface, of same size and mode
-	settings.ImgTemp = imgut.Create(settings.ImgTarget.W, settings.ImgTarget.H, settings.ImgTarget.ColorSpace)
+	//settings.ImgTemp = imgut.Create(settings.ImgTarget.W, settings.ImgTarget.H, settings.ImgTarget.ColorSpace)
 	// Create temporary surface for the entire population
 	pImgCols := int(math.Ceil(math.Sqrt(float64(*popSize))))
 	pImgRows := int(math.Ceil(float64(*popSize) / float64(pImgCols)))
@@ -121,81 +124,86 @@ func Evolve(calcMaxDepth func(*imgut.Image) int, fun, ter []gp.Primitive, drawfu
 		}
 	*/
 
-	// Loop until max number of generation is reached
-	snapshot := 0
-	for g := 0; g < *numGen; g++ {
+	// Number of parallel generators to setup
+	pipelineSize := 4
+	// Containers for pipelined operators
+	chXo := make([]<-chan ga.PipelineIndividual, pipelineSize)
+	chMut := make([]<-chan ga.PipelineIndividual, pipelineSize)
 
+	// Loop until max number of generation is reached
+	for g := 0; g < *numGen; g++ {
 		// Compute fitness for every individual with no fitness
 		fitnessEval := pop.Evaluate()
 		if !*quiet {
 			fmt.Println("Generation ", g, "fit evals", fitnessEval)
 		}
 
-		// set to true to use non-pipelined version
-		var sel []ga.Individual
-		if false {
-			// Apply selection
-			sel, _ = pop.Select(len(pop.Pop))
+		// Compute various statistics
+		sta.Observe(pop)
 
-			// Crossover and mutation
-			for i := 0; i < len(sel)-1; i += 2 {
-				sel[i].Crossover(*pCross, sel[i+1])
-				sel[i].Mutate(*pMut)
-				sel[i+1].Mutate(*pMut)
-			}
-
-		} else {
-			// Parallel pipeline
-			chSel := ga.GenSelect(pop, len(pop.Pop))
-			chXo1, chXo2, chXo3, chXo4 := ga.GenCrossover(chSel, *pCross), ga.GenCrossover(chSel, *pCross), ga.GenCrossover(chSel, *pCross), ga.GenCrossover(chSel, *pCross)
-			chMut1, chMut2, chMut3, chMut4 := ga.GenMutate(chXo1, *pMut), ga.GenMutate(chXo2, *pMut), ga.GenMutate(chXo3, *pMut), ga.GenMutate(chXo4, *pMut)
-			sel = ga.Collector(ga.FanIn(chMut1, chMut2, chMut3, chMut4), len(pop.Pop))
-		}
-
-		// Replace old population
-		for i := range sel {
-			pop.Pop[i] = sel[i].(*base.Individual)
-		}
-
-		// Update samples
+		// Statistics and samples
 		if g%*saveInterval == 0 {
-			// Sort population, to easy reading when printing and drawing
-			sort.Sort(pop)
-			// Save snapshot
-			snapName := fmt.Sprintf("%v/snapshot/%v-snapshot-%v.png", basedir, basename, snapshot)
-			snapPopName := fmt.Sprintf("%v/snapshot/%v-pop_snapshot-%v.png", basedir, basename, snapshot)
-			if !*quiet {
-				fmt.Println("Saving best individual snapshot", snapName)
-				fmt.Println(pop.BestIndividual())
-				// Print the fitnesses for each individual
-				//				for kk := range pop.Pop {
-				//		fmt.Println(kk, "-th individual has fitness", pop.Pop[kk].Fitness())
-				//		}
-				//				fmt.Println("Saving pop snapshot", snapPopName)
-				//				fmt.Println(pop)
-			}
+			snapName, snapPopName := sta.SaveSnapshot(pop, *quiet)
 			// Save best individual
-			pop.BestIndividual().(*base.Individual).Draw(settings.ImgTemp)
-			settings.ImgTemp.WritePNG(snapName)
+			pop.BestIndividual().Evaluate()
+			pop.BestIndividual().(*base.Individual).ImgTemp.WritePNG(snapName)
+			//	pop.BestIndividual().(*base.Individual).Draw(settings.ImgTemp)
+			//	settings.ImgTemp.WritePNG(snapName)
 			// Save pop images
 			pop.Draw(imgTempPop, pImgCols, pImgRows)
 			imgTempPop.WritePNG(snapPopName)
-			// Increment snapshot count
-			snapshot++
 		}
+
+		// Setup parallel pipeline
+		selectionSize := len(pop.Pop) // int(float64(len(pop.Pop))*0.3)) if you want to randomly generate new individuals
+		chSel := ga.GenSelect(pop, selectionSize)
+		for i := 0; i < pipelineSize; i++ {
+			chXo[i] = ga.GenCrossover(chSel, *pCross)
+			chMut[i] = ga.GenMutate(chXo[i], *pMut)
+		}
+		var sel []ga.PipelineIndividual = ga.Collector(ga.FanIn(chMut...), selectionSize)
+
+		// Replace old population and compute statistics
+		for i := range sel {
+			pop.Pop[i] = sel[i].Ind.(*base.Individual)
+			sta.ObserveCrossoverFitness(sel[i].CrossoverFitness, sel[i].InitialFitness)
+			sta.ObserveMutationFitness(sel[i].MutationFitness, sel[i].CrossoverFitness)
+
+		}
+		// Build new individuals
+		//base.RampedFill(pop, len(sel), len(pop.Pop))
 	}
 	fitnessEval := pop.Evaluate()
+	// Population statistics
+	sta.Observe(pop)
 
 	if !*quiet {
 		fmt.Println("Generation", *numGen, "fit evals", fitnessEval)
 		fmt.Println("Best individual", pop.BestIndividual())
 	}
 
-	bestName := fmt.Sprintf("%v/best/%v.png", basedir, basename)
+	snapName, snapPopName := sta.SaveSnapshot(pop, *quiet)
+	// Save best individual
+	pop.BestIndividual().Evaluate()
+	pop.BestIndividual().(*base.Individual).ImgTemp.WritePNG(snapName)
+	//	pop.BestIndividual().(*base.Individual).Draw(settings.ImgTemp)
+	//	settings.ImgTemp.WritePNG(snapName)
+	// Save pop images
+	pop.Draw(imgTempPop, pImgCols, pImgRows)
+	imgTempPop.WritePNG(snapPopName)
+
 	if !*quiet {
-		fmt.Println("Saving best individual in", bestName)
+		fmt.Println("Best individual:")
 		fmt.Println(pop.BestIndividual())
 	}
-	pop.BestIndividual().(*base.Individual).Draw(settings.ImgTemp)
-	settings.ImgTemp.WritePNG(bestName)
+
+	/*
+		bestName := fmt.Sprintf("%v/best/%v.png", basedir, basename)
+		if !*quiet {
+			fmt.Println("Saving best individual in", bestName)
+			fmt.Println(pop.BestIndividual())
+		}
+		pop.BestIndividual().(*base.Individual).Draw(settings.ImgTemp)
+		settings.ImgTemp.WritePNG(bestName)
+	*/
 }

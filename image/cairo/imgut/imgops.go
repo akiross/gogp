@@ -46,7 +46,7 @@ func Create(w, h int, mode ColorSpace) *Image {
 }
 
 // Load an image from a PNG file
-func Load(path string) *Image {
+func Load(path string) (*Image, error) {
 	var img Image
 
 	img.Surf = C.cairo_image_surface_create_from_png(C.CString(path))
@@ -59,11 +59,12 @@ func Load(path string) *Image {
 		img.ColorSpace = MODE_RGBA
 	default:
 		fmt.Println("ERROR: Format not supported")
+		return nil, error("Format not supported")
 	}
 	img.W = int(C.cairo_image_surface_get_width(img.Surf))
 	img.H = int(C.cairo_image_surface_get_height(img.Surf))
 	img.Ctx = C.cairo_create(img.Surf)
-	return &img
+	return &img, nil
 }
 
 func (i *Image) SetColor(col ...float64) {

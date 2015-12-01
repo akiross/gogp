@@ -9,8 +9,14 @@ import (
 	"image/png"
 	"math"
 	"os"
-	//	"unsafe"
+	"sync"
+	"unsafe"
 )
+
+// #cgo CFLAGS: -O2 -Wall -fopenmp
+// #cgo LDFLAGS: -lgomp
+// #include "linearShading.h"
+import "C"
 
 type ColorSpace int
 
@@ -126,6 +132,14 @@ func (i *Image) FillSurface(col ...float64) {
 	i.FillRect(0, 0, float64(i.W), float64(i.H), col...)
 }
 
+func (img *Image) LinearShade(x1, y1, x2, y2, sx, sy, ex, ey, startCol, endCol float64) {
+	// Get a pointer to image data
+	rgbaImage := img.Surf.(*image.RGBA)
+	pixPtr := (*C.uchar)(unsafe.Pointer(&rgbaImage.Pix[0]))
+	// Do shading
+	C.linearShading(pixPtr, C.int(rgbaImage.Stride), C.int(x1), C.int(y1), C.int(x2), C.int(y2), C.double(startCol), C.double(endCol), C.double(sx), C.double(sy), C.double(ex), C.double(ey))
+}
+
 // Copy image onto the target image, at specified position
 func (i *Image) Blit(x, y int, target *Image) {
 	destPoint := image.Pt(x, y)
@@ -138,22 +152,44 @@ func (i *Image) Clear() {
 	draw.Draw(i.Surf, i.Surf.Bounds(), image.Transparent, image.ZP, draw.Src)
 }
 
-type PixelFunc func(x, y int) float64
+type PixelFunc func(x, y float64) float64
 
 // Fill the image evaluating the function over each pixel
 // You can specify one function per channel, or one function for all the channels
 // The values will be normalized
 // BUG(akiross) this should return an error
-func (img *Image) FillMath(chanFuncs ...PixelFunc) {
+// Coordinates are relative to image boundary sizes
+func (img *Image) FillMath(minX, minY, maxX, maxY float64, chanFuncs ...PixelFunc) {
 	// BUG(akiross) Only RGBA is supported
+
 	b := img.Surf.Bounds()
-	for i := b.Min.Y; i < b.Max.Y; i++ {
-		for j := b.Min.X; j < b.Max.X; j++ {
-			val := uint8(chanFuncs[0](i, j) * 0xff)
-			col := color.RGBA{val, val, val, 0xff}
-			img.Surf.Set(i, j, col)
-		}
+	bx, by := int(float64(b.Min.X)*minX), int(float64(b.Min.Y)*minY)
+	ex, ey := int(float64(b.Max.X)*maxX), int(float64(b.Max.Y)*maxY)
+
+	// Wait many goroutines to finish
+	var wg sync.WaitGroup
+
+	// Number of goroutines to wait for
+	wg.Add(ey - by)
+
+	// Start goroutines
+	for i := by; i < ey; i++ {
+		go func(i int) {
+			for j := bx; j < ex; j++ {
+				val := uint8(chanFuncs[0](float64(i)/float64(ey-by), float64(j)/float64(ex-bx)) * 0xff)
+				col := color.RGBA{val, val, val, 0xff}
+				img.Surf.Set(i, j, col)
+			}
+			wg.Done()
+		}(i)
 	}
+
+	// Wait for them to finish
+	wg.Wait()
+}
+
+func (img *Image) FillMathBounds(chanFuncs ...PixelFunc) {
+	img.FillMath(0, 0, 1, 1, chanFuncs...)
 }
 
 // Write an image to PNG

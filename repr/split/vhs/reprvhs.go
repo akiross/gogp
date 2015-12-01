@@ -42,6 +42,13 @@ func Filler(col ...float64) Terminal {
 	}
 }
 
+// Builds a Terminal that fill the entire area with a shaded line
+func LinShade(startCol, endCol, sx, sy, ex, ey float64) Terminal {
+	return func(x1, y1, x2, y2 float64, img *imgut.Image) {
+		img.LinearShade(x1, y1, x2, y2, sx, sy, ex, ey, startCol, endCol)
+	}
+}
+
 // Returns a terminal that fills the rectangle according to left and right
 func VSplit(args ...Terminal) Terminal {
 	return func(x1, y1, x2, y2 float64, img *imgut.Image) {

@@ -14,7 +14,8 @@ type Settings struct {
 	MaxDepth int
 
 	// Images used for evaluation
-	ImgTarget, ImgTemp *imgut.Image
+	//ImgTarget, ImgTemp *imgut.Image
+	ImgTarget *imgut.Image
 
 	// Functionals and terminals used
 	Functionals []gp.Primitive
@@ -32,6 +33,7 @@ type Individual struct {
 	fitness    ga.Fitness
 	fitIsValid bool
 	set        *Settings
+	ImgTemp    *imgut.Image // where to render the individual
 }
 
 func (ind *Individual) String() string {
@@ -43,7 +45,8 @@ func (ind *Individual) Fitness() ga.Fitness {
 }
 
 func (ind *Individual) Copy() ga.Individual {
-	return &Individual{ind.Node.Copy(), ind.fitness, ind.fitIsValid, ind.set}
+	tmpImg := imgut.Create(ind.set.ImgTarget.W, ind.set.ImgTarget.H, ind.set.ImgTarget.ColorSpace)
+	return &Individual{ind.Node.Copy(), ind.fitness, ind.fitIsValid, ind.set, tmpImg}
 }
 
 func (ind *Individual) Crossover(pCross float64, mate ga.Individual) {
@@ -56,11 +59,15 @@ func (ind *Individual) Draw(img *imgut.Image) {
 	ind.set.Draw(ind, img)
 }
 
-func (ind *Individual) Evaluate() {
-	// Draw the individual
-	ind.set.Draw(ind, ind.set.ImgTemp)
-	ind.fitness = ga.Fitness(imgut.PixelDistance(ind.set.ImgTemp, ind.set.ImgTarget))
-	ind.fitIsValid = true
+func (ind *Individual) Evaluate() ga.Fitness {
+	// Compute only if necessary
+	if true || !ind.fitIsValid { // BUG(akiross) FIXME TODO this test should be enabled
+		// Draw the individual
+		ind.set.Draw(ind, ind.ImgTemp)
+		ind.fitness = ga.Fitness(imgut.PixelDistance(ind.ImgTemp, ind.set.ImgTarget))
+		ind.fitIsValid = true
+	}
+	return ind.fitness
 }
 
 func (ind *Individual) FitnessValid() bool {
@@ -69,6 +76,7 @@ func (ind *Individual) FitnessValid() bool {
 
 func (ind *Individual) Initialize() {
 	ind.Node = node.MakeTreeHalfAndHalf(ind.set.MaxDepth, ind.set.Functionals, ind.set.Terminals)
+	ind.ImgTemp = imgut.Create(ind.set.ImgTarget.W, ind.set.ImgTarget.H, ind.set.ImgTarget.ColorSpace)
 }
 
 // BUG(akiross) the mutation used here replaces a single, random.Node with an equivalent one - same as in DEAP - but we should go over each.Node and apply mutation probability
