@@ -41,4 +41,3 @@ func FuncName(f Primitive) string {
 	s := strings.Split(name, ".")
 	return s[len(s)-1]
 }
-
