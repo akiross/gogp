@@ -80,17 +80,56 @@ func (pop *Population) Initialize(n int) {
 
 func (pop *Population) Select(n int) ([]ga.Individual, error) {
 	selectionSize, tournSize := n, pop.TournSize
+	divSize := 7
+
 	if (selectionSize < 1) || (tournSize < 1) {
 		return nil, &ParamError{"Cannot have selectionSize < 1 or tournSize < 1"}
 	}
+
+	// Each individual is selected randomly
+	randomSampler := func() *Individual {
+		return pop.Pop[rand.Intn(len(pop.Pop))]
+	}
+
+	// Each individual is selected via a tournament for "maximum diversity"
+	subMaxDiversitySampler := func(subPopSize int) *Individual {
+		// Get images of individuals
+		subPop := make([]*Individual, subPopSize)
+		subPopImages := make([]*imgut.Image, subPopSize)
+		for i := range subPop {
+			subPop[i] = randomSampler()
+			subPopImages[i] = subPop[i].ImgTemp
+		}
+
+		// Compute the average image
+		avgImage := imgut.Average(subPopImages)
+
+		// Once the average is computed, pick a random individual
+		best := 0
+		// And compute its distance from the average
+		bestDist := imgut.PixelRMSE(subPop[best].ImgTemp, avgImage)
+		// Select other players and get the best
+		for i := 1; i < subPopSize; i++ {
+			// Compute distance from average
+			maybeDist := imgut.PixelRMSE(subPop[i].ImgTemp, avgImage)
+			// If distance increases, we are maximizing diversity
+			if maybeDist > bestDist {
+				bestDist = maybeDist
+				best = i
+			}
+		}
+		// Return the most different individual from the average image
+		return subPop[best]
+	}
+
 	// Slice to store the new population
 	newPop := make([]ga.Individual, selectionSize)
 	for i := 0; i < selectionSize; i++ {
 		// Pick an initial (pointer to) random individual
-		best := pop.Pop[rand.Intn(len(pop.Pop))]
+		best := subMaxDiversitySampler(divSize) //randomSampler()
 		// Select other players and select the best
 		for j := 1; j < tournSize; j++ {
-			maybe := pop.Pop[rand.Intn(len(pop.Pop))]
+			maybe := subMaxDiversitySampler(divSize) //randomSampler()
 			if pop.BetterThan(maybe.fitness, best.fitness) {
 				best = maybe
 			}

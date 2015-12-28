@@ -16,6 +16,7 @@ import (
 // #cgo CFLAGS: -O2 -Wall -fopenmp
 // #cgo LDFLAGS: -lgomp
 // #include "linearShading.h"
+// #include "imageAverage.h"
 import "C"
 
 type ColorSpace int
@@ -42,6 +43,11 @@ func Create(w, h int, mode ColorSpace) *Image {
 	img.Ctx = draw2dimg.NewGraphicContext(img.Surf)
 	img.W, img.H = w, h
 	return &img
+}
+
+func getDataPointer(img *Image) (*C.uchar, C.int) {
+	rgbaImage := img.Surf.(*image.RGBA)
+	return (*C.uchar)(unsafe.Pointer(&rgbaImage.Pix[0])), C.int(rgbaImage.Stride)
 }
 
 // Load an image from a PNG file
@@ -134,10 +140,11 @@ func (i *Image) FillSurface(col ...float64) {
 
 func (img *Image) LinearShade(x1, y1, x2, y2, sx, sy, ex, ey, startCol, endCol float64) {
 	// Get a pointer to image data
-	rgbaImage := img.Surf.(*image.RGBA)
-	pixPtr := (*C.uchar)(unsafe.Pointer(&rgbaImage.Pix[0]))
+	pixPtr, stride := getDataPointer(img)
+	//rgbaImage := img.Surf.(*image.RGBA)
+	//pixPtr := (*C.uchar)(unsafe.Pointer(&rgbaImage.Pix[0]))
 	// Do shading
-	C.linearShading(pixPtr, C.int(rgbaImage.Stride), C.int(x1), C.int(y1), C.int(x2), C.int(y2), C.double(startCol), C.double(endCol), C.double(sx), C.double(sy), C.double(ex), C.double(ey))
+	C.linearShading(pixPtr, stride, C.int(x1), C.int(y1), C.int(x2), C.int(y2), C.double(startCol), C.double(endCol), C.double(sx), C.double(sy), C.double(ex), C.double(ey))
 }
 
 // Copy image onto the target image, at specified position
@@ -269,4 +276,36 @@ func PixelRMSE(i1, i2 *Image) (rmse float64) {
 	}
 	rmse = math.Sqrt(rmse / float64(count))
 	return
+}
+
+// Returns the average image of the provided slice of images
+// The output size will be the same as first input image.
+// Any image with different size will be ignored.
+func Average(images []*Image) *Image {
+	if len(images) == 0 {
+		return nil
+	}
+
+	width, height := images[0].W, images[0].H
+
+	// Build storage for accumulated image
+	accumulator := make([]float32, width*height*4)
+	accPtr := (*C.float)(unsafe.Pointer(&accumulator[0]))
+
+	// Accumulate every image
+	for i := range images {
+		// Pixel-by-pixel
+		pixPtr, stride := getDataPointer(images[i])
+		//		rgbaImage := images[i].Surf.(*image.RGBA)
+		//		pixPtr := (*C.uchar)(unsafe.Pointer(&rgbaImage.Pix[0]))
+		C.imageAccumulate(accPtr, pixPtr, stride, C.int(width), C.int(height))
+	}
+
+	// Output image
+	avgImg := Create(width, height, images[0].ColorSpace)
+	imgPtr, stride := getDataPointer(avgImg)
+	// The resulting image is the accumulator divided by number of images
+	C.imageDivide(imgPtr, accPtr, C.float(len(images)), stride, C.int(width), C.int(height))
+
+	return avgImg
 }
