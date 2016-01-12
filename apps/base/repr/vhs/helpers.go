@@ -44,13 +44,14 @@ func init() {
 		Terminals = append(Terminals, vhs.Terminal(vhs.Filler(c, c, c, 1)))
 	}
 
-	count = 0
+	count = 8
+	reps := 8
 	for i := 0; i <= count; i++ {
 		c := float64(i) / float64(count)
 		for j := i + 1; j <= count; j++ {
 			k := float64(j) / float64(count)
 			// Multiple copie
-			for n := 0; n < 3; n++ {
+			for n := 0; n < reps; n++ {
 				Terminals = append(Terminals, vhs.Terminal(vhs.LinShade(c, k, rand.Float64(), rand.Float64(), rand.Float64(), rand.Float64())))
 			}
 		}

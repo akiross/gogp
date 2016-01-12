@@ -14,15 +14,16 @@ type Individual interface {
 	Initialize()                   // Be initializable
 	Mutate(p float64)              // Mutate with given probability
 	fmt.Stringer                   // Be convertible to string
+	//	SetMetadata(key, value string) // Set metadata for this individual
 }
 
 type Population interface {
-	Evaluate() int                      // Evaluate fitnesses, return evaluated ones
-	Get(i int) Individual               // Get a pointer to ith individual
-	Initialize(n int)                   // Build N individuals
-	Size() int                          // Get the number of individuals
-	Select(n int) ([]Individual, error) // Select N individuals
-	BestIndividual() Individual         // Return the best individual in current population
+	Evaluate() int                                   // Evaluate fitnesses, return evaluated ones
+	Get(i int) Individual                            // Get a pointer to ith individual
+	Initialize(n int)                                // Build N individuals
+	Size() int                                       // Get the number of individuals
+	Select(n int, gen float32) ([]Individual, error) // Select N individuals at given percentage of evolution process
+	BestIndividual() Individual                      // Return the best individual in current population
 	FitnessComparator
 }
 

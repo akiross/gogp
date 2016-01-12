@@ -156,7 +156,7 @@ func Evolve(calcMaxDepth func(*imgut.Image) int, fun, ter []gp.Primitive, drawfu
 
 		// Setup parallel pipeline
 		selectionSize := len(pop.Pop) // int(float64(len(pop.Pop))*0.3)) if you want to randomly generate new individuals
-		chSel := ga.GenSelect(pop, selectionSize)
+		chSel := ga.GenSelect(pop, selectionSize, float32(g)/float32(*numGen))
 		for i := 0; i < pipelineSize; i++ {
 			chXo[i] = ga.GenCrossover(chSel, *pCross)
 			chMut[i] = ga.GenMutate(chXo[i], *pMut)

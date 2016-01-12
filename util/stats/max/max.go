@@ -5,20 +5,16 @@ type Max struct {
 	count, maxIdx int // how many values visited, which one was the maximum
 }
 
-func Create() *Max {
-	return &Max{0, -1, -1}
-}
-
 func (m *Max) Observe(v float64) {
-	m.count += 1
 	// If we didn't have a maximum, set it
-	if m.maxIdx < 0 {
+	if m.count == 0 {
 		m.maxIdx = 0
 		m.max = v
 	} else if v > m.max { // Else check if a new max has been found
 		m.max = v
 		m.maxIdx = m.count
 	}
+	m.count += 1
 }
 
 // Get the maximum value found so far TODO error if none was found

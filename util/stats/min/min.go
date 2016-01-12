@@ -5,20 +5,16 @@ type Min struct {
 	count, minIdx int // how many values visited, which one was the minimum
 }
 
-func Create() *Min {
-	return &Min{0, -1, -1}
-}
-
 func (m *Min) Observe(v float64) {
-	m.count += 1
 	// If we didn't have a minimum, set it
-	if m.minIdx < 0 {
+	if m.count == 0 {
 		m.minIdx = 0
 		m.min = v
 	} else if v < m.min { // else check for a new minima
 		m.min = v
 		m.minIdx = m.count
 	}
+	m.count += 1
 }
 
 // Get the minimum value found so far TODO error if none was found

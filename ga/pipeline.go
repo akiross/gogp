@@ -27,11 +27,11 @@ type PipelineIndividual struct {
 }
 
 // This is a version of Select that is a stage in a pipeline. Will provide pointers to NEW individuals
-func GenSelect(pop Population, selectionSize int) <-chan PipelineIndividual {
+func GenSelect(pop Population, selectionSize int, generation float32) <-chan PipelineIndividual {
 	// A channel for output individuals
 	out := make(chan PipelineIndividual, selectionSize)
 	go func() {
-		sel, _ := pop.Select(selectionSize)
+		sel, _ := pop.Select(selectionSize, generation)
 		for i := range sel {
 			var ind PipelineIndividual
 			ind.Ind = sel[i]

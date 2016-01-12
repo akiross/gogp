@@ -77,12 +77,23 @@ func (stats *Stats) SaveSnapshot(pop *base.Population, quiet bool) (snapName, sn
 		fmt.Println("Saving best individual snapshot", snapName)
 		fmt.Println(pop.BestIndividual())
 
-		fmt.Println("Statistics:")
-		fmt.Println("  Tree depth (mean, stdev):", stats.depth.PartialMean(), math.Sqrt(stats.depth.PartialVar()))
-		fmt.Println("  Fitness (mean, stdev):", stats.fitness.PartialMean(), math.Sqrt(stats.fitness.PartialVar()))
-		fmt.Println("  Fitness (min, max):", stats.min.Get(), stats.max.Get())
-		fmt.Println("  XO Improv (abs, rel):", stats.xoImpr.AbsoluteFrequency(), stats.xoImpr.RelativeFrequency())
-		fmt.Println("  MUT Improv (abs, rel):", stats.mutImpr.AbsoluteFrequency(), stats.mutImpr.RelativeFrequency())
+		///////////////                                                                                                   111111
+		///////////////         111111111122222222223333333333444444444455555555556666666666777777777788888888889999999999000000
+		///////////////123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345
+		fmt.Println("  Tree depth (mean, stdev) |       Fitness (min, mean, max, stdev)       |  XO Improv (abs, rel) | MUT Improv (abs, rel)")
+		fmt.Printf("   %11.4f %11.4f | %10.2f %10.2f %10.2f %10.2f | %10v %10.3f | %10v %10.3f\n",
+			stats.depth.PartialMean(), math.Sqrt(stats.depth.PartialVar()),
+			stats.min.Get(), stats.fitness.PartialMean(), stats.max.Get(), math.Sqrt(stats.fitness.PartialVar()),
+			stats.xoImpr.AbsoluteFrequency(), stats.xoImpr.RelativeFrequency(),
+			stats.mutImpr.AbsoluteFrequency(), stats.mutImpr.RelativeFrequency(),
+		)
+
+		//fmt.Println("Statistics:")
+		//fmt.Println("  Tree depth (mean, stdev):", stats.depth.PartialMean(), math.Sqrt(stats.depth.PartialVar()))
+		//fmt.Println("  Fitness (mean, stdev):", stats.fitness.PartialMean(), math.Sqrt(stats.fitness.PartialVar()))
+		//fmt.Println("  Fitness (min, max):", stats.min.Get(), stats.max.Get())
+		//fmt.Println("  XO Improv (abs, rel):", stats.xoImpr.AbsoluteFrequency(), stats.xoImpr.RelativeFrequency())
+		//fmt.Println("  MUT Improv (abs, rel):", stats.mutImpr.AbsoluteFrequency(), stats.mutImpr.RelativeFrequency())
 
 		// Print the fitnesses for each individual
 		//				for kk := range pop.Pop {

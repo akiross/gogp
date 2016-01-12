@@ -78,9 +78,10 @@ func (pop *Population) Initialize(n int) {
 	}
 }
 
-func (pop *Population) Select(n int) ([]ga.Individual, error) {
+func (pop *Population) Select(n int, gen float32) ([]ga.Individual, error) {
 	selectionSize, tournSize := n, pop.TournSize
 	divSize := 7
+	randomCount := int(float32(selectionSize) * 0.5 * (1 - gen))
 
 	if (selectionSize < 1) || (tournSize < 1) {
 		return nil, &ParamError{"Cannot have selectionSize < 1 or tournSize < 1"}
@@ -122,20 +123,30 @@ func (pop *Population) Select(n int) ([]ga.Individual, error) {
 		return subPop[best]
 	}
 
+	// This function select the sample strategy depending on the current i
+	individualSampler := func(i int) *Individual {
+		if i < randomCount {
+			return randomSampler()
+		} else {
+			return subMaxDiversitySampler(divSize)
+		}
+	}
+
 	// Slice to store the new population
 	newPop := make([]ga.Individual, selectionSize)
 	for i := 0; i < selectionSize; i++ {
 		// Pick an initial (pointer to) random individual
-		best := subMaxDiversitySampler(divSize) //randomSampler()
+		best := individualSampler(i)
 		// Select other players and select the best
 		for j := 1; j < tournSize; j++ {
-			maybe := subMaxDiversitySampler(divSize) //randomSampler()
+			maybe := individualSampler(i)
 			if pop.BetterThan(maybe.fitness, best.fitness) {
 				best = maybe
 			}
 		}
-		newPop[i] = best.Copy() //&Individual{best.Node.Copy(), best.fitness, best.fitIsValid, best.set}
+		newPop[i] = best.Copy()
 	}
+
 	return newPop, nil
 }
 
