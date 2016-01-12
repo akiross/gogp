@@ -27,10 +27,22 @@ type PipelineIndividual struct {
 }
 
 // This is a version of Select that is a stage in a pipeline. Will provide pointers to NEW individuals
-func GenSelect(pop Population, selectionSize int, generation float32) <-chan PipelineIndividual {
+// If elite is provided (not nil), it is selected with probability 1
+func GenSelect(pop Population, selectionSize int, generation float32, elite Individual) <-chan PipelineIndividual {
 	// A channel for output individuals
 	out := make(chan PipelineIndividual, selectionSize)
 	go func() {
+		// If elite is provided
+		if elite != nil {
+			// Decrease selection
+			selectionSize -= 1
+			// Output the individual
+			var ind PipelineIndividual
+			ind.Ind = elite
+			ind.InitialFitness = elite.Evaluate()
+			out <- ind
+		}
+		// Proceed regularly
 		sel, _ := pop.Select(selectionSize, generation)
 		for i := range sel {
 			var ind PipelineIndividual
@@ -38,20 +50,6 @@ func GenSelect(pop Population, selectionSize int, generation float32) <-chan Pip
 			ind.InitialFitness = sel[i].Evaluate()
 			out <- ind
 		}
-		/*
-			for i := 0; i < selectionSize; i++ {
-				// Pick an initial (pointer to) random individual
-				best := pop.Get(rand.Intn(pop.Size()))
-				// Select other players and select the best
-				for j := 1; j < tournSize; j++ {
-					maybe := pop.Get(rand.Intn(pop.Size()))
-					if pop.IndividualCompare(maybe, best) {
-						best = maybe
-					}
-				}
-				sel := best.Copy() //&Individual{best.node.Copy(), best.fitness, best.fitIsValid}
-				out <- sel
-			}*/
 		close(out)
 	}()
 	return out

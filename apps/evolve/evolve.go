@@ -130,6 +130,9 @@ func Evolve(calcMaxDepth func(*imgut.Image) int, fun, ter []gp.Primitive, drawfu
 	chXo := make([]<-chan ga.PipelineIndividual, pipelineSize)
 	chMut := make([]<-chan ga.PipelineIndividual, pipelineSize)
 
+	// Save best individual, for elitism
+	var elite ga.Individual = nil
+
 	// Loop until max number of generation is reached
 	for g := 0; g < *numGen; g++ {
 		// Compute fitness for every individual with no fitness
@@ -156,7 +159,7 @@ func Evolve(calcMaxDepth func(*imgut.Image) int, fun, ter []gp.Primitive, drawfu
 
 		// Setup parallel pipeline
 		selectionSize := len(pop.Pop) // int(float64(len(pop.Pop))*0.3)) if you want to randomly generate new individuals
-		chSel := ga.GenSelect(pop, selectionSize, float32(g)/float32(*numGen))
+		chSel := ga.GenSelect(pop, selectionSize, float32(g)/float32(*numGen), elite)
 		for i := 0; i < pipelineSize; i++ {
 			chXo[i] = ga.GenCrossover(chSel, *pCross)
 			chMut[i] = ga.GenMutate(chXo[i], *pMut)
@@ -168,8 +171,13 @@ func Evolve(calcMaxDepth func(*imgut.Image) int, fun, ter []gp.Primitive, drawfu
 			pop.Pop[i] = sel[i].Ind.(*base.Individual)
 			sta.ObserveCrossoverFitness(sel[i].CrossoverFitness, sel[i].InitialFitness)
 			sta.ObserveMutationFitness(sel[i].MutationFitness, sel[i].CrossoverFitness)
-
 		}
+
+		// When elitism is activated, get best individual
+		if true {
+			elite = pop.BestIndividual()
+		}
+
 		// Build new individuals
 		//base.RampedFill(pop, len(sel), len(pop.Pop))
 	}
