@@ -33,9 +33,9 @@ func MaxDepth(img *imgut.Image) int {
 	// Hence 2^n = 1, 2, 4, 8, 16... is the number of splits we get at depth n
 	// If the image has P pixels, we want to pick the smallest n such that 2^n > P -> n > log_2(P)
 	md := int(math.Log2(float64(img.W*img.H))) + 1
-	// Limit height to 7, to avoid too large trees
-	if md > 10 {
-		return 10
+	// Limit height to avoid too large trees
+	if md > 13 {
+		return 13
 	}
 	return md
 }
