@@ -61,7 +61,7 @@ func (ind *Individual) Draw(img *imgut.Image) {
 
 func (ind *Individual) Evaluate() ga.Fitness {
 	// Compute only if necessary
-	if true || !ind.fitIsValid { // BUG(akiross) FIXME TODO this test should be enabled
+	if !ind.fitIsValid { // BUG(akiross) FIXME TODO this test should be enabled
 		// Draw the individual
 		ind.set.Draw(ind, ind.ImgTemp)
 		ind.fitness = ga.Fitness(imgut.PixelDistance(ind.ImgTemp, ind.set.ImgTarget))

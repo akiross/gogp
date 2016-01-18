@@ -166,10 +166,10 @@ func MakeTreeNodeMutation(funcs, terms []gp.Primitive) func(float64, *Node) bool
 	for i := range funcs {
 		arity := funcs[i].Arity()
 		if _, ok := prims[arity]; ok {
-			prims[i] = append(prims[i], funcs[i])
+			prims[arity] = append(prims[arity], funcs[i])
 		} else {
-			prims[i] = make([]gp.Primitive, 1)
-			prims[i][0] = funcs[i]
+			prims[arity] = make([]gp.Primitive, 1)
+			prims[arity][0] = funcs[i]
 		}
 	}
 	// Terminals have arity -1
@@ -243,6 +243,19 @@ func MakeSubtreeMutation(maxH int, genFunction func(maxH int) *Node) func(float6
 		swapNodes(tNodes[nid], replacement)
 		// Replacement is discarded
 		return true
+	}
+}
+
+// Applies multiple mutations at random
+func MakeMultiMutation(maxH int, genFunction func(maxH int) *Node, funcs, terms []gp.Primitive) func(float64, *Node) bool {
+	mutFuncs := make([]func(float64, *Node) bool, 3)
+	mutFuncs[0] = MakeTreeSingleMutation(funcs, terms)
+	mutFuncs[1] = MakeTreeNodeMutation(funcs, terms)
+	mutFuncs[2] = MakeSubtreeMutation(maxH, genFunction)
+
+	return func(pMut float64, t *Node) bool {
+		i := rand.Intn(len(mutFuncs))
+		return mutFuncs[i](pMut, t)
 	}
 }
 

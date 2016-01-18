@@ -1,6 +1,7 @@
 package vhs
 
 import (
+	"fmt"
 	"github.com/akiross/gogp/gp"
 	"github.com/akiross/gogp/image/draw2d/imgut"
 	"github.com/akiross/gogp/node"
@@ -15,7 +16,10 @@ import (
 
 // Define primitives
 var Functionals []gp.Primitive = []gp.Primitive{vhs.Functional(vhs.VSplit), vhs.Functional(vhs.HSplit)}
+var FuncNames []string = []string{"VSplit", "HSplit"}
+
 var Terminals []gp.Primitive = []gp.Primitive{}
+var TermNames []string = []string{}
 
 func Draw(ind *node.Node, img *imgut.Image) {
 	// We have to compile the nodes
@@ -37,11 +41,17 @@ func MaxDepth(img *imgut.Image) int {
 }
 
 func init() {
+	fmt.Println("Init degli helpers")
+	for i := range Functionals {
+		fmt.Println("Functional", Functionals[i], "has arity", Functionals[i].Arity())
+	}
+
 	// Build some colors
 	count := 8 // number of total colors, from black to white
 	for i := 0; i <= count; i++ {
 		c := float64(i) / float64(count)
 		Terminals = append(Terminals, vhs.Terminal(vhs.Filler(c, c, c, 1)))
+		TermNames = append(TermNames, fmt.Sprintf("T_%d", int(c*256)))
 	}
 
 	count = 8
@@ -52,7 +62,9 @@ func init() {
 			k := float64(j) / float64(count)
 			// Multiple copie
 			for n := 0; n < reps; n++ {
-				Terminals = append(Terminals, vhs.Terminal(vhs.LinShade(c, k, rand.Float64(), rand.Float64(), rand.Float64(), rand.Float64())))
+				sx, sy, ex, ey := rand.Float64(), rand.Float64(), rand.Float64(), rand.Float64()
+				Terminals = append(Terminals, vhs.Terminal(vhs.LinShade(c, k, sx, sy, ex, ey)))
+				TermNames = append(TermNames, fmt.Sprintf("T_%d-%d_%d-%d_%d-%d", int(c*256), int(k*256), int(sx*100), int(sy*100), int(ex*100), int(ey*100)))
 			}
 		}
 	}

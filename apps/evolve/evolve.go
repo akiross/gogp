@@ -99,7 +99,11 @@ func Evolve(calcMaxDepth func(*imgut.Image) int, fun, ter []gp.Primitive, drawfu
 
 	// Define the operators
 	settings.CrossOver = node.MakeTree1pCrossover(settings.MaxDepth)
-	settings.Mutate = node.MakeTreeSingleMutation(settings.Functionals, settings.Terminals)
+	//settings.Mutate = node.MakeTreeSingleMutation(settings.Functionals, settings.Terminals)
+	treeGen := func(maxDep int) *node.Node {
+		return node.MakeTreeHalfAndHalf(maxDep, settings.Functionals, settings.Terminals)
+	}
+	settings.Mutate = node.MakeMultiMutation(settings.MaxDepth, treeGen, settings.Functionals, settings.Terminals)
 
 	// Seed rng
 	if !*quiet {
