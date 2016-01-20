@@ -41,11 +41,6 @@ func MaxDepth(img *imgut.Image) int {
 }
 
 func init() {
-	fmt.Println("Init degli helpers")
-	for i := range Functionals {
-		fmt.Println("Functional", Functionals[i], "has arity", Functionals[i].Arity())
-	}
-
 	// Build some colors
 	count := 8 // number of total colors, from black to white
 	for i := 0; i <= count; i++ {

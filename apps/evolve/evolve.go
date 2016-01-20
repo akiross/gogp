@@ -26,8 +26,10 @@ func Evolve(calcMaxDepth func(*imgut.Image) int, fun, ter []gp.Primitive, drawfu
 	// Draw function to use
 	settings.Draw = drawfun
 
+	startTime := time.Now()
+
 	// Setup options
-	seed := flag.Int64("seed", time.Now().UTC().UnixNano(), "Seed for RNG")
+	seed := flag.Int64("seed", startTime.UTC().UnixNano(), "Seed for RNG")
 	numGen := flag.Int("g", 100, "Number of generations")
 	popSize := flag.Int("p", 1000, "Size of population")
 	saveInterval := flag.Int("n", 25, "Generations interval between two snapshot saves")
@@ -137,13 +139,19 @@ func Evolve(calcMaxDepth func(*imgut.Image) int, fun, ter []gp.Primitive, drawfu
 	// Save best individual, for elitism
 	var elite ga.Individual = nil
 
+	// Save time before starting
+	//genTime := time.Now()
+
 	// Loop until max number of generation is reached
 	for g := 0; g < *numGen; g++ {
 		// Compute fitness for every individual with no fitness
 		fitnessEval := pop.Evaluate()
-		if !*quiet {
-			fmt.Println("Generation ", g, "fit evals", fitnessEval)
-		}
+		fitnessEval = fitnessEval
+		//
+		//if !*quiet {
+		//	fmt.Println("Generation ", g, "fit evals", fitnessEval, time.Since(genTime))
+		//	genTime = time.Now()
+		//}
 
 		// Compute various statistics
 		sta.Observe(pop)
@@ -186,13 +194,14 @@ func Evolve(calcMaxDepth func(*imgut.Image) int, fun, ter []gp.Primitive, drawfu
 		//base.RampedFill(pop, len(sel), len(pop.Pop))
 	}
 	fitnessEval := pop.Evaluate()
+	fitnessEval = fitnessEval
 	// Population statistics
 	sta.Observe(pop)
 
-	if !*quiet {
-		fmt.Println("Generation", *numGen, "fit evals", fitnessEval)
-		fmt.Println("Best individual", pop.BestIndividual())
-	}
+	//if !*quiet {
+	//	fmt.Println("Generation", *numGen, "fit evals", fitnessEval)
+	//	fmt.Println("Best individual", pop.BestIndividual())
+	//}
 
 	snapName, snapPopName := sta.SaveSnapshot(pop, *quiet)
 	// Save best individual
@@ -208,6 +217,9 @@ func Evolve(calcMaxDepth func(*imgut.Image) int, fun, ter []gp.Primitive, drawfu
 		fmt.Println("Best individual:")
 		fmt.Println(pop.BestIndividual())
 	}
+
+	elapsedTime := time.Since(startTime)
+	fmt.Println("Execution took %s", elapsedTime)
 
 	/*
 		bestName := fmt.Sprintf("%v/best/%v.png", basedir, basename)

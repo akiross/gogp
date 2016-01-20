@@ -13,6 +13,8 @@ import (
 	"unsafe"
 )
 
+// BUG(akiross) Basically, only RGBA is supported (and has been shallowly tested)
+
 // #cgo CFLAGS: -O2 -Wall -fopenmp
 // #cgo LDFLAGS: -lgomp
 // #include "linearShading.h"
@@ -38,7 +40,6 @@ type Image struct {
 // Create an image of the given size
 func Create(w, h int, mode ColorSpace) *Image {
 	var img Image
-	// BUG(akiross) only RGBA supported
 	img.Surf = image.NewRGBA(image.Rect(0, 0, w, h))
 	img.Ctx = draw2dimg.NewGraphicContext(img.Surf)
 	img.W, img.H = w, h
@@ -85,7 +86,6 @@ func Load(path string) (*Image, error) {
 }
 
 func (i *Image) SetColor(col ...float64) {
-	// BUG(akiross) RGBA is supported right now
 	if len(col) < 3 {
 		fmt.Println("ERROR: SetColor works only in RGB mode right now, you need to pass 3 parameters")
 		panic("ERROR: SetColor requires 3 parameters")
@@ -167,8 +167,6 @@ type PixelFunc func(x, y float64) float64
 // BUG(akiross) this should return an error
 // Coordinates are relative to image boundary sizes
 func (img *Image) FillMath(minX, minY, maxX, maxY float64, chanFuncs ...PixelFunc) {
-	// BUG(akiross) Only RGBA is supported
-
 	b := img.Surf.Bounds()
 	bx, by := int(float64(b.Min.X)*minX), int(float64(b.Min.Y)*minY)
 	ex, ey := int(float64(b.Max.X)*maxX), int(float64(b.Max.Y)*maxY)
@@ -199,6 +197,21 @@ func (img *Image) FillMathBounds(chanFuncs ...PixelFunc) {
 	img.FillMath(0, 0, 1, 1, chanFuncs...)
 }
 
+// Fill img pixel-by-pixel using the result of the comp function called on every pixel
+// of every image in images. images must have the same boundaries and color space of img
+func (img *Image) FillVectorialize(images []*Image, comp func([]color.Color) color.Color) {
+	b := img.Surf.Bounds()
+	for i := b.Min.Y; i < b.Max.Y; i++ {
+		for j := b.Min.X; j < b.Max.X; j++ {
+			colors := make([]color.Color, len(images))
+			for k := range colors {
+				colors[k] = images[k].Surf.At(j, i)
+			}
+			img.Surf.Set(j, i, comp(colors))
+		}
+	}
+}
+
 // Write an image to PNG
 func (i *Image) WritePNG(path string) {
 	file, err := os.Create(path)
@@ -222,7 +235,6 @@ func (i *Image) WritePNG(path string) {
 
 // Compute the distance between two images, pixel by pixel (RSME)
 func PixelDistance(i1, i2 *Image) (rmse float64) {
-	// BUG(akiross) Only RGBA is supported
 	// Check that sizes are the same
 	im1, im2 := i1.Surf, i2.Surf
 	if im1.Bounds() != im2.Bounds() {
@@ -244,15 +256,13 @@ func PixelDistance(i1, i2 *Image) (rmse float64) {
 			count++
 		}
 	}
-	// BUG(akiross) in the python version this is not normalized, but it should be!! For now, use un-normalized version to compare results, later fix this bug
-	// ind.fitness = gogp.Fitness(math.Sqrt(dist / float64(count)))
-	rmse = math.Sqrt(rmse)
+	// BUG(akiross) in the python version this is not normalized
+	rmse = math.Sqrt(rmse) / float64(count)
 	return
 }
 
 // Compute the distance between two images, pixel by pixel (RSME)
 func PixelRMSE(i1, i2 *Image) (rmse float64) {
-	// BUG(akiross) Only RGBA is supported
 	// Check that sizes are the same
 	im1, im2 := i1.Surf, i2.Surf
 	if im1.Bounds() != im2.Bounds() {
@@ -308,4 +318,85 @@ func Average(images []*Image) *Image {
 	C.imageDivide(imgPtr, accPtr, C.float(len(images)), stride, C.int(width), C.int(height))
 
 	return avgImg
+}
+
+type ConvolutionMatrix struct {
+	Size int
+	Data []float64
+}
+
+// Normalize the matrix so that Data sums to 1
+func (cm *ConvolutionMatrix) Normalize() {
+	var tot float64
+	for i := range cm.Data {
+		tot += cm.Data[i]
+	}
+	for i := range cm.Data {
+		cm.Data[i] /= tot
+	}
+}
+
+func clamp8(v float64) uint8 {
+	if int(v) < 0 {
+		return 0
+	} else if int(v) > 255 {
+		return 255
+	}
+	return uint8(v)
+}
+
+// WARNING: This function does NOT apply the convolution filter on alpha
+// and uses the original alpha value for each img pixel
+func (cm *ConvolutionMatrix) Multiply(img *Image, x, y int) color.RGBA {
+	var racc, gacc, bacc float64
+	count := cm.Size * cm.Size
+	b := img.Surf.Bounds()
+
+	for k := 0; k < count; k++ {
+		i, j := k/cm.Size-cm.Size/2, k%cm.Size-cm.Size/2
+		y2, x2 := y+i, x+j
+		if y2 < b.Min.Y || y2 >= b.Max.Y {
+			y2 = y
+		}
+		if x2 < b.Min.X || x2 >= b.Max.X {
+			x2 = x
+		}
+
+		rgba8 := color.RGBAModel.Convert(img.Surf.At(x2, y2)).(color.RGBA)
+
+		nr := float64(rgba8.R) * cm.Data[k]
+		ng := float64(rgba8.G) * cm.Data[k]
+		nb := float64(rgba8.B) * cm.Data[k]
+
+		racc += nr
+		gacc += ng
+		bacc += nb
+	}
+
+	const mk = 0xff
+	outCol := color.RGBA{
+		clamp8(racc) & mk,
+		clamp8(gacc) & mk,
+		clamp8(bacc) & mk,
+		img.Surf.At(x, y).(color.RGBA).A, // XXX original alpha value
+	}
+	return outCol
+}
+
+func ApplyConvolution(cm *ConvolutionMatrix, img *Image) *Image {
+	// Create result image
+	dest := Create(img.W, img.H, img.ColorSpace)
+
+	bs := img.Surf.Bounds()
+	for i := bs.Min.Y; i < bs.Max.Y; i++ {
+		for j := bs.Min.X; j < bs.Max.X; j++ {
+			dest.Surf.Set(j, i, cm.Multiply(img, j, i))
+		}
+	}
+
+	return dest
+}
+
+func SobelOperator(img *Image) *Image {
+	return nil
 }

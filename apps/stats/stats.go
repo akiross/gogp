@@ -10,21 +10,25 @@ import (
 	"github.com/akiross/gogp/util/stats/variance"
 	"math"
 	"sort"
+	"time"
 )
 
 type Stats struct {
 	basedir, basename string
 	snapCount         int
+	obsCount          int // Number of observation
 	depth, fitness    variance.Variance
 	min               min.Min         // Min fitness
 	max               max.Max         // Max fitness
 	xoImpr, mutImpr   counter.Counter // Count how often xo and mut improve
+	lastTime          time.Time       // Time of last snapshot
 }
 
 func Create(basedir, basename string) *Stats {
 	var stats Stats
 	stats.basedir = basedir
 	stats.basename = basename
+	stats.lastTime = time.Now()
 	return &stats
 }
 
@@ -39,6 +43,7 @@ func (stats *Stats) PopulationDepths(pop *base.Population) []int {
 
 // Keep track of changes
 func (stats *Stats) Observe(pop *base.Population) {
+	stats.obsCount += 1
 	for i := range pop.Pop {
 		// Accumulate depth
 		depth := pop.Pop[i].Node.Depth()
@@ -66,6 +71,9 @@ func (stats *Stats) ObserveMutationFitness(newFit, oldFit ga.Fitness) {
 // In general, we would like to keep some time-series, but we cannot keep them for every individual or it will take way too much memory!
 
 func (stats *Stats) SaveSnapshot(pop *base.Population, quiet bool) (snapName, snapPopName string) {
+	timeDelay := time.Since(stats.lastTime)
+	stats.lastTime = time.Now()
+
 	// Sort population, to easy reading when printing and drawing
 	sort.Sort(pop)
 	// Build paths
@@ -74,18 +82,22 @@ func (stats *Stats) SaveSnapshot(pop *base.Population, quiet bool) (snapName, sn
 	snapPopName = fmt.Sprintf(prefix+"pop_snapshot-%v.png", stats.snapCount)
 
 	if !quiet {
-		fmt.Println("Saving best individual snapshot", snapName)
-		fmt.Println(pop.BestIndividual())
+		//fmt.Println("Saving best individual snapshot", snapName)
+		//fmt.Println(pop.BestIndividual())
 
 		///////////////                                                                                                   111111
 		///////////////         111111111122222222223333333333444444444455555555556666666666777777777788888888889999999999000000
 		///////////////123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345
-		fmt.Println("  Tree depth (mean, stdev) |       Fitness (min, mean, max, stdev)       |  XO Improv (abs, rel) | MUT Improv (abs, rel)")
-		fmt.Printf("   %11.4f %11.4f | %10.2f %10.2f %10.2f %10.2f | %10v %10.3f | %10v %10.3f\n",
+		if stats.snapCount == 0 {
+			fmt.Println("Generation |  Tree depth (mean, stdev) |       Fitness (min, mean, max, stdev)       |  XO Improv (abs, rel) | MUT Improv (abs, rel) |    Time delay |")
+		}
+		fmt.Printf("%10v |   %11.4f %11.4f | %10.2f %10.2f %10.2f %10.2f | %10v %10.3f | %10v %10.3f | %13v |\n",
+			stats.obsCount-1,
 			stats.depth.PartialMean(), math.Sqrt(stats.depth.PartialVar()),
 			stats.min.Get(), stats.fitness.PartialMean(), stats.max.Get(), math.Sqrt(stats.fitness.PartialVar()),
 			stats.xoImpr.AbsoluteFrequency(), stats.xoImpr.RelativeFrequency(),
 			stats.mutImpr.AbsoluteFrequency(), stats.mutImpr.RelativeFrequency(),
+			fmt.Sprintf("%v", timeDelay),
 		)
 
 		//fmt.Println("Statistics:")

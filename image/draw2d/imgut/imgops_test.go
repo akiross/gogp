@@ -1,6 +1,7 @@
 package imgut
 
 import (
+	"image/color"
 	"math/rand"
 	"testing"
 	"time"
@@ -55,4 +56,61 @@ func TestCreate(t *testing.T) {
 		img.LinearShade(0, 0, 100, 100, rand.Float64(), rand.Float64(), rand.Float64(), rand.Float64(), rand.Float64(), rand.Float64())
 	}
 	img.WritePNG(path)
+}
+
+func TestConvolution(t *testing.T) {
+	t.Log("Testing convolution")
+	cm3 := ConvolutionMatrix{3, []float64{
+		0, 1, 0,
+		1, -4, 1,
+		0, 1, 0},
+	}
+	//cm3.Normalize()
+
+	cm5 := ConvolutionMatrix{5, []float64{
+		0, 0, 0, 0, 0,
+		0, 0, 1, 0, 0,
+		0, 1, -4, 1, 0,
+		0, 0, 1, 0, 0,
+		0, 0, 0, 0, 0},
+	}
+	cm5.Normalize()
+
+	path := "lena.png"
+	t.Log("Loading sample image...")
+	img, err := Load(path)
+	if err != nil {
+		t.Error("Cannot load the image we just saved!! WTF?!?!")
+	}
+
+	img3 := ApplyConvolution(&cm3, img)
+	img3.WritePNG("/home/akiross/Dropbox/Dottorato/TeslaPhD/GoGP/test_conv3.png")
+	//	img5 := ApplyConvolution(&cm5, img)
+	//	img5.WritePNG("/home/akiross/Dropbox/Dottorato/TeslaPhD/GoGP/test_conv5.png")
+}
+
+func TestComposition(t *testing.T) {
+	img1 := Create(100, 100, MODE_RGBA)
+	img2 := Create(100, 100, MODE_RGBA)
+	img3 := Create(100, 100, MODE_RGBA)
+
+	img2.FillMath(0, 0, 1, 1, func(x, y float64) float64 { return y })
+	img3.FillMath(0, 0, 1, 1, func(x, y float64) float64 { return x })
+	img1.FillVectorialize([]*Image{img2, img3}, func(comps []color.Color) color.Color {
+		cm1 := img1.Surf.ColorModel()
+		var tot float64
+		for i := range comps {
+			c := cm1.Convert(comps[i]).(color.RGBA)
+			tot += float64(c.R) / 255.0
+		}
+		if tot < 0 {
+			tot = 0
+		} else if tot > 1 {
+			tot = 1
+		}
+		return color.RGBA{uint8(tot * 0xff), 0x00, 0x00, 0xff}
+	})
+	img1.WritePNG("img1.png")
+	img2.WritePNG("img2.png")
+	img3.WritePNG("img3.png")
 }
