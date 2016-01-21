@@ -61,10 +61,28 @@ func (ind *Individual) Draw(img *imgut.Image) {
 
 func (ind *Individual) Evaluate() ga.Fitness {
 	// Compute only if necessary
-	if !ind.fitIsValid { // BUG(akiross) FIXME TODO this test should be enabled
+	if !ind.fitIsValid {
+		// Fitness using weighted criteria
+		const (
+			PLAIN_DISTANCE = 0.4
+			EDGE_DISTANCE  = 0.6
+		)
 		// Draw the individual
 		ind.set.Draw(ind, ind.ImgTemp)
-		ind.fitness = ga.Fitness(imgut.PixelDistance(ind.ImgTemp, ind.set.ImgTarget))
+		// Compute RMSE
+		rmse := imgut.PixelRMSE(ind.ImgTemp, ind.set.ImgTarget)
+		// Compute edge detection
+		edgeKern := &imgut.ConvolutionMatrix{3, []float64{
+			0, 1, 0,
+			1, -4, 1,
+			0, 1, 0},
+		}
+		imgEdge := imgut.ApplyConvolution(edgeKern, ind.ImgTemp)
+		targEdge := imgut.ApplyConvolution(edgeKern, ind.set.ImgTarget) // XXX this could be computed once
+		// Compute distance between edges
+		edRmse := imgut.PixelRMSE(imgEdge, targEdge)
+		// Weighted fitness
+		ind.fitness = ga.Fitness(PLAIN_DISTANCE*rmse + EDGE_DISTANCE*edRmse)
 		ind.fitIsValid = true
 	}
 	return ind.fitness

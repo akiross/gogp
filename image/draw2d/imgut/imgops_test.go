@@ -22,12 +22,12 @@ func TestCreate(t *testing.T) {
 		t.Error("Cannot load the image we just saved!! WTF?!?!")
 	}
 	t.Log("Image loaded correctly :)")
-	if PixelDistance(img, img2) != 0 {
+	if PixelRMSE(img, img2) != 0 {
 		t.Error("DISTANCE IS NOT NULL, WTF?!?!")
 	}
 	t.Log("Pixel distance is zero, ofc :)")
 	img.FillRect(0, 0, float64(img.W), float64(img.H), 0.6, 0.6, 0.6)
-	t.Log("Pixel distance now:", PixelDistance(img, img2))
+	t.Log("Pixel distance now:", PixelRMSE(img, img2))
 	img.FillTriangle(10, 50, 50, 1, 0, 0)
 	img.FillTriangle(90, 50, 50, 0, 1, 0)
 	img.WritePNG(path)
@@ -114,3 +114,15 @@ func TestComposition(t *testing.T) {
 	img2.WritePNG("img2.png")
 	img3.WritePNG("img3.png")
 }
+
+// Bah, not working
+/*
+func TestSobel(t *testing.T) {
+	img, err := Load("lena.png")
+	if err != nil {
+		t.Error("Cannot load the image we just saved!! WTF?!?!")
+	}
+	sob := SobelOperator(img)
+	sob.WritePNG("lena_sobel.png")
+}
+*/

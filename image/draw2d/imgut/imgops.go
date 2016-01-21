@@ -233,6 +233,7 @@ func (i *Image) WritePNG(path string) {
 	}
 }
 
+/*
 // Compute the distance between two images, pixel by pixel (RSME)
 func PixelDistance(i1, i2 *Image) (rmse float64) {
 	// Check that sizes are the same
@@ -260,6 +261,7 @@ func PixelDistance(i1, i2 *Image) (rmse float64) {
 	rmse = math.Sqrt(rmse) / float64(count)
 	return
 }
+*/
 
 // Compute the distance between two images, pixel by pixel (RSME)
 func PixelRMSE(i1, i2 *Image) (rmse float64) {
@@ -397,6 +399,42 @@ func ApplyConvolution(cm *ConvolutionMatrix, img *Image) *Image {
 	return dest
 }
 
+/* Not a good one... FIXME
+// Returns a new image with the sobel operator applied to img
 func SobelOperator(img *Image) *Image {
-	return nil
+	gx := &ConvolutionMatrix{3, []float64{
+		-1, 0, 1,
+		-2, 0, 2,
+		-1, 0, 1},
+	}
+	gy := &ConvolutionMatrix{3, []float64{
+		-1, -2, -1,
+		0, 0, 0,
+		1, 2, 1},
+	}
+
+	imgs := make([]*Image, 2)
+	imgs[0] = ApplyConvolution(gx, img)
+	imgs[1] = ApplyConvolution(gy, img)
+
+	out := Create(img.W, img.H, img.ColorSpace)
+
+	out.FillVectorialize(imgs, func(comps []color.Color) color.Color {
+		cm := img.Surf.ColorModel()
+
+		c1 := cm.Convert(comps[0]).(color.RGBA)
+		c2 := cm.Convert(comps[1]).(color.RGBA)
+
+		const maxVal = 360.7 // (0xff * 0xff + 0xff * 0xff) ** 0.5
+
+		r1, g1, b1 := float64(c1.R), float64(c1.G), float64(c1.B)
+		r2, g2, b2 := float64(c2.R), float64(c2.G), float64(c2.B)
+
+		r := clamp8(0xff * math.Sqrt(r1*r1+r2+r2) / maxVal)
+		g := clamp8(0xff * math.Sqrt(g1*g1+g2+g2) / maxVal)
+		b := clamp8(0xff * math.Sqrt(b1*b1+b2+b2) / maxVal)
+		return color.RGBA{r, g, b, 0xff}
+	})
+	return out
 }
+*/
