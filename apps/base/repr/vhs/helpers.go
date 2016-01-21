@@ -41,11 +41,13 @@ func MaxDepth(img *imgut.Image) int {
 }
 
 // Buils a new ephimeral constant
+/*
 func MakeEphimeral() gp.Primitive {
 	sx, sy, ex, ey := rand.Float64(), rand.Float64(), rand.Float64(), rand.Float64()
 	Terminals = append(Terminals, vhs.Terminal(vhs.LinShade(c, k, sx, sy, ex, ey)))
 	TermNames = append(TermNames, fmt.Sprintf("T_%d-%d_%d-%d_%d-%d", int(c*256), int(k*256), int(sx*100), int(sy*100), int(ex*100), int(ey*100)))
 }
+*/
 
 func init() {
 	// Build some colors
