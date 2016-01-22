@@ -9,6 +9,7 @@ import (
 	"github.com/akiross/gogp/gp"
 	"github.com/akiross/gogp/image/draw2d/imgut"
 	"github.com/akiross/gogp/node"
+	"github.com/akiross/gogp/util/stats/sequence"
 	"math"
 	"math/rand"
 	"os"
@@ -64,6 +65,9 @@ func Evolve(calcMaxDepth func(*imgut.Image) int, fun, ter []gp.Primitive, drawfu
 	}
 
 	sta := stats.Create(basedir, basename)
+
+	// Build statistic map
+	settings.Statistics = make(map[string]*sequence.SequenceStats)
 
 	if *cpuProfile != "" {
 		f, err := os.Create(*cpuProfile)
@@ -167,6 +171,13 @@ func Evolve(calcMaxDepth func(*imgut.Image) int, fun, ter []gp.Primitive, drawfu
 			// Save pop images
 			pop.Draw(imgTempPop, pImgCols, pImgRows)
 			imgTempPop.WritePNG(snapPopName)
+
+			// Print custom statistics
+			for key := range settings.Statistics {
+				sst := settings.Statistics[key]
+				fmt.Println("Stats", key, sst.Variance.Count(), sst.Min.Get(), sst.Max.Get(), sst.PartialMean(), sst.PartialVarBessel())
+				sst.Clear()
+			}
 		}
 
 		// Setup parallel pipeline

@@ -82,6 +82,7 @@ func (stats *Stats) SaveSnapshot(pop *base.Population, quiet bool) (snapName, sn
 	snapPopName = fmt.Sprintf(prefix+"pop_snapshot-%v.png", stats.snapCount)
 
 	if !quiet {
+		// TODO XXX FIXME this will be re-introduced when individuals support informative pretty-printing
 		//fmt.Println("Saving best individual snapshot", snapName)
 		//fmt.Println(pop.BestIndividual())
 

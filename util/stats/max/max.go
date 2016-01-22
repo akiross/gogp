@@ -5,6 +5,13 @@ type Max struct {
 	count, maxIdx int // how many values visited, which one was the maximum
 }
 
+// Clear the observations
+func (m *Max) Clear() {
+	m.max = 0
+	m.count = 0
+	m.maxIdx = 0
+}
+
 func (m *Max) Observe(v float64) {
 	// If we didn't have a maximum, set it
 	if m.count == 0 {
@@ -24,7 +31,11 @@ func (m *Max) Get() float64 {
 
 // Get the ID (sequence number) of the maximum found
 func (m *Max) GetId() int {
-	return m.maxIdx
+	if m.count > 0 {
+		return m.maxIdx
+	} else {
+		return -1
+	}
 }
 
 // Get the number of visited values

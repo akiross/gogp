@@ -5,6 +5,13 @@ type Min struct {
 	count, minIdx int // how many values visited, which one was the minimum
 }
 
+// Clear the observations
+func (m *Min) Clear() {
+	m.min = 0
+	m.count = 0
+	m.minIdx = 0
+}
+
 func (m *Min) Observe(v float64) {
 	// If we didn't have a minimum, set it
 	if m.count == 0 {
@@ -24,7 +31,11 @@ func (m *Min) Get() float64 {
 
 // Get the ID (sequence number) of the minimum found
 func (m *Min) GetId() int {
-	return m.minIdx
+	if m.count > 0 {
+		return m.minIdx
+	} else {
+		return -1
+	}
 }
 
 // Get the number of visited values

@@ -6,6 +6,7 @@ import (
 	"github.com/akiross/gogp/gp"
 	"github.com/akiross/gogp/image/draw2d/imgut"
 	"github.com/akiross/gogp/node"
+	"github.com/akiross/gogp/util/stats/sequence"
 )
 
 type Settings struct {
@@ -26,6 +27,9 @@ type Settings struct {
 	// Operators used in evolution
 	CrossOver func(float64, *node.Node, *node.Node) bool
 	Mutate    func(float64, *node.Node) bool
+
+	// These hold general purpose statistics for debugging purposes
+	Statistics map[string]*sequence.SequenceStats // Custom stats
 }
 
 type Individual struct {
@@ -62,11 +66,6 @@ func (ind *Individual) Draw(img *imgut.Image) {
 func (ind *Individual) Evaluate() ga.Fitness {
 	// Compute only if necessary
 	if !ind.fitIsValid {
-		// Fitness using weighted criteria
-		const (
-			PLAIN_DISTANCE = 0.4
-			EDGE_DISTANCE  = 0.6
-		)
 		// Draw the individual
 		ind.set.Draw(ind, ind.ImgTemp)
 		// Compute RMSE
@@ -81,8 +80,20 @@ func (ind *Individual) Evaluate() ga.Fitness {
 		targEdge := imgut.ApplyConvolution(edgeKern, ind.set.ImgTarget) // XXX this could be computed once
 		// Compute distance between edges
 		edRmse := imgut.PixelRMSE(imgEdge, targEdge)
+
+		// Statistics on output values
+		if _, ok := ind.set.Statistics["sub-fit-plain"]; !ok {
+			ind.set.Statistics["sub-fit-plain"] = sequence.Create()
+		}
+		ind.set.Statistics["sub-fit-plain"].Observe(rmse)
+
+		if _, ok := ind.set.Statistics["sub-fit-edged"]; !ok {
+			ind.set.Statistics["sub-fit-edged"] = sequence.Create()
+		}
+		ind.set.Statistics["sub-fit-edged"].Observe(edRmse)
+
 		// Weighted fitness
-		ind.fitness = ga.Fitness(PLAIN_DISTANCE*rmse + EDGE_DISTANCE*edRmse)
+		ind.fitness = ga.Fitness(rmse * edRmse)
 		ind.fitIsValid = true
 	}
 	return ind.fitness
