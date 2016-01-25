@@ -18,18 +18,22 @@ type Functional3 func(args ...gp.Primitive) gp.Primitive // Ternary operations
 func (self Terminal) IsFunctional() bool                 { return false }
 func (self Terminal) Arity() int                         { return -1 }
 func (self Terminal) Run(p ...gp.Primitive) gp.Primitive { return self }
+func (self Terminal) Name() string                       { return "Terminal" }
 
 func (self Functional1) IsFunctional() bool                 { return true }
 func (self Functional1) Arity() int                         { return 1 }
 func (self Functional1) Run(p ...gp.Primitive) gp.Primitive { return self(p[0]) }
+func (self Functional1) Name() string                       { return "Terminal" }
 
 func (self Functional2) IsFunctional() bool                 { return true }
 func (self Functional2) Arity() int                         { return 2 }
 func (self Functional2) Run(p ...gp.Primitive) gp.Primitive { return self(p[0], p[1]) }
+func (self Functional2) Name() string                       { return "Terminal" }
 
 func (self Functional3) IsFunctional() bool                 { return true }
 func (self Functional3) Arity() int                         { return 3 }
 func (self Functional3) Run(p ...gp.Primitive) gp.Primitive { return self(p[0], p[1], p[2]) }
+func (self Functional3) Name() string                       { return "Terminal" }
 
 func IdentityX(x, _ NumericIn) NumericOut {
 	return NumericOut(x)

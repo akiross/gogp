@@ -34,6 +34,7 @@ type Primitive interface {
 	IsFunctional() bool         // Returns true if is functional, false if terminal
 	Arity() int                 // Returns the arity of the primitive
 	Run(...Primitive) Primitive // Functionals returns terminals, terminals do nothing
+	Name() string               // Get the name of this primitive
 }
 
 func FuncName(f Primitive) string {

@@ -19,6 +19,10 @@ func (self Terminal) Arity() int {
 	return -1 // Not used
 }
 
+func (self Terminal) Name() string {
+	return "Termina"
+}
+
 func (self Terminal) Run(p ...gp.Primitive) gp.Primitive {
 	return self
 }
@@ -33,6 +37,10 @@ func (self Functional) Arity() int {
 
 func (self Functional) Run(p ...gp.Primitive) gp.Primitive {
 	return self(p[0].(Terminal), p[1].(Terminal))
+}
+
+func (self Functional) Name() string {
+	return "Functional"
 }
 
 // Buils a Terminal that fills the entire area with given color

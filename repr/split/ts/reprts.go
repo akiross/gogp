@@ -21,6 +21,9 @@ func (self Terminal) Run(p ...gp.Primitive) gp.Primitive {
 	return self
 }
 
+func (self Terminal) Name() string {
+	return "Termina"
+}
 func (self Functional) IsFunctional() bool {
 	return true
 }
@@ -31,6 +34,10 @@ func (self Functional) Arity() int {
 
 func (self Functional) Run(p ...gp.Primitive) gp.Primitive {
 	return self(p[0].(Terminal), p[1].(Terminal), p[2].(Terminal), p[3].(Terminal))
+}
+
+func (self Functional) Name() string {
+	return "Functional"
 }
 
 // Return a terminal that fills the entire triangle with given color
