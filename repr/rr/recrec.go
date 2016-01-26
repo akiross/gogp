@@ -13,11 +13,16 @@ type Primitive struct {
 	functional bool
 	arity      int
 	Render     RenderFunc
+	ephemeral  func() *Primitive
 }
 
 // Returns true if is functional, false if terminal
 func (p *Primitive) IsFunctional() bool {
 	return p.functional
+}
+
+func (p *Primitive) IsEphemeral() bool {
+	return p.ephemeral != nil
 }
 
 func (p *Primitive) Arity() int {
@@ -33,13 +38,15 @@ func (p *Primitive) Run(args ...gp.Primitive) gp.Primitive {
 			right := args[1].(*Primitive)
 			left.Render(x1, y1, xh, y2, img)
 			right.Render(xh, y1, x2, y2, img)
-		}}
+		}, nil}
 	} else if p.name == "HSplit" {
 		return &Primitive{"HSplit", false, -1, func(x1, y1, x2, y2 float64, img *imgut.Image) {
 			yh := (y1 + y2) * 0.5
 			args[0].(*Primitive).Render(x1, y1, x2, yh, img)
 			args[1].(*Primitive).Render(x1, yh, x2, y2, img)
-		}}
+		}, nil}
+	} else if p.IsEphemeral() {
+		return p.ephemeral() // Generate and return new constant
 	} else {
 		return p
 	}
@@ -50,15 +57,19 @@ func (p *Primitive) Name() string {
 }
 
 func MakeVSplit() *Primitive {
-	return &Primitive{"VSplit", true, 2, nil}
+	return &Primitive{"VSplit", true, 2, nil, nil}
 }
 
 func MakeHSplit() *Primitive {
-	return &Primitive{"HSplit", true, 2, nil}
+	return &Primitive{"HSplit", true, 2, nil, nil}
 }
 
 func MakeTerminal(name string, rf RenderFunc) *Primitive {
-	return &Primitive{name, false, -1, rf}
+	return &Primitive{name, false, -1, rf, nil}
+}
+
+func MakeEphimeral(name string, mk func() *Primitive) *Primitive {
+	return &Primitive{name, false, -1, nil, mk}
 }
 
 func Filler(col ...float64) RenderFunc {

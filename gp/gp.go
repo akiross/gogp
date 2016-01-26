@@ -32,8 +32,9 @@ import (
 
 type Primitive interface {
 	IsFunctional() bool         // Returns true if is functional, false if terminal
+	IsEphemeral() bool          // Returns true if is ephemeral terminal constant. If True, Run will return a new, random Terminal
 	Arity() int                 // Returns the arity of the primitive
-	Run(...Primitive) Primitive // Functionals returns terminals, terminals do nothing
+	Run(...Primitive) Primitive // Functionals returns terminals, non ephemeral terminals return theirselves, ephemerals return a new non-ephemeral terminal
 	Name() string               // Get the name of this primitive
 }
 

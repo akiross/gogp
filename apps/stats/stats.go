@@ -83,8 +83,8 @@ func (stats *Stats) SaveSnapshot(pop *base.Population, quiet bool) (snapName, sn
 
 	if !quiet {
 		// TODO XXX FIXME this will be re-introduced when individuals support informative pretty-printing
-		//fmt.Println("Saving best individual snapshot", snapName)
-		//fmt.Println(pop.BestIndividual())
+		fmt.Println("Saving best individual snapshot", snapName)
+		fmt.Println(pop.BestIndividual())
 
 		///////////////                                                                                                   111111
 		///////////////         111111111122222222223333333333444444444455555555556666666666777777777788888888889999999999000000

@@ -1,6 +1,7 @@
 package rr
 
 import (
+	"fmt"
 	"github.com/akiross/gogp/gp"
 	"github.com/akiross/gogp/image/draw2d/imgut"
 	"github.com/akiross/gogp/node"
@@ -15,7 +16,7 @@ import (
 
 // Define primitives
 var Functionals []gp.Primitive = []gp.Primitive{rr.MakeHSplit(), rr.MakeVSplit()}
-var Terminals []gp.Primitive = []gp.Primitive{}
+var Terminals []gp.Primitive = []gp.Primitive{rr.MakeEphimeral("MakeFull", MakeFullColor), rr.MakeEphimeral("MakeShade", MakeShadeColor)}
 
 func Draw(ind *node.Node, img *imgut.Image) {
 	// We have to compile the nodes
@@ -36,17 +37,23 @@ func MaxDepth(img *imgut.Image) int {
 	return md
 }
 
-// Buils a new ephimeral constant
-func MakeEphimeral() gp.Primitive {
+func MakeFullColor() *rr.Primitive {
+	c := rand.Float64()
+	name := fmt.Sprintf("T_%d", int(c*256))
+	return rr.MakeTerminal(name, rr.Filler(c, c, c))
+}
+
+func MakeShadeColor() *rr.Primitive {
+	// Pick two random colors
 	c, k := rand.Float64(), rand.Float64()
+	// Pick random positions
 	sx, sy, ex, ey := rand.Float64(), rand.Float64(), rand.Float64(), rand.Float64()
-	return rr.MakeTerminal("Ephimeral?", rr.LinShade(c, k, sx, sy, ex, ey))
+	name := fmt.Sprintf("EPH_%x-%x_%d-%d_%d-%d", int(c*256), int(k*256), int(sx*100), int(sy*100), int(ex*100), int(ey*100))
+	return rr.MakeTerminal(name, rr.LinShade(c, k, sx, sy, ex, ey))
 }
 
 func init() {
-
-	Terminals = append(Terminals, rr.MakeTerminal("White", rr.Filler(1.0, 1.0, 1.0)))
-	Terminals = append(Terminals, MakeEphimeral())
+	//	Terminals = append(Terminals, rr.MakeTerminal("White", rr.Filler(1.0, 1.0, 1.0)))
 	/*
 		// Build some colors
 		count := 8 // number of total colors, from black to white

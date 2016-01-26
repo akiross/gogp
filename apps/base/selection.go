@@ -24,7 +24,7 @@ func SampleTournament(sample []*Individual, betterFit func(a, b ga.Fitness) bool
 	b := 0
 	// Search the best individual among them
 	for i := range sample {
-		if betterFit(sample[i].Evaluate(), sample[b].Evaluate()) {
+		if betterFit(sample[i].Fitness(), sample[b].Fitness()) {
 			b = i // Save best individual
 		}
 	}

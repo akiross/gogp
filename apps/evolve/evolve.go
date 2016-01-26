@@ -18,6 +18,62 @@ import (
 	"time"
 )
 
+func makeMultiMutation(s *base.Settings) func(float64, *base.Individual) bool {
+	singleMut := node.MakeTreeSingleMutation(s.Functionals, s.Terminals) // func(*Node)
+	nodeMut := node.MakeTreeNodeMutation(s.Functionals, s.Terminals)     // funcs, terms []gp.Primitive)// func(*Node) int {
+	subtrMut := node.MakeSubtreeMutation(s.MaxDepth, func(maxDep int) *node.Node {
+		return node.MakeTreeHalfAndHalf(maxDep, s.Functionals, s.Terminals)
+	})
+
+	return func(pMut float64, ind *base.Individual) bool {
+		switch rand.Intn(4) {
+		case 0:
+			if rand.Float64() < pMut {
+				singleMut(ind.Node)
+				return true
+			}
+		case 1:
+			// pMut is applied to each node
+			return nodeMut(pMut, ind.Node) != 0
+		case 2:
+			if rand.Float64() < pMut {
+				subtrMut(ind.Node)
+				return true
+			}
+		default:
+			neighbSize := 5
+			if rand.Float64() < pMut {
+				for i := 0; i < neighbSize; i++ {
+					mutated := ind.Copy().(*base.Individual) // Copy individual
+					singleMut(mutated.Node)                  // Apply mutation
+					// BUG(akiros) TODO FIXME probably the problem min/max is something to be placed in Settings, and not in population
+					if mutated.Fitness() <= ind.Fitness() {
+						// If improved, save the individual
+						ind.Node = mutated.Node
+						// Invalidate!
+						ind.Invalidate()
+					}
+				}
+				// Perform singleMut K times
+				return true
+			}
+		}
+		return false
+	}
+}
+
+func makeCrossover(s *base.Settings) func(float64, *base.Individual, *base.Individual) bool {
+	xo := node.MakeTree1pCrossover(s.MaxDepth)
+	return func(pCross float64, mate1, mate2 *base.Individual) bool {
+		if rand.Float64() < pCross {
+			xo(mate1.Node, mate2.Node)
+			return true
+		} else {
+			return false
+		}
+	}
+}
+
 func Evolve(calcMaxDepth func(*imgut.Image) int, fun, ter []gp.Primitive, drawfun func(*base.Individual, *imgut.Image)) {
 	// Build settings
 	var settings base.Settings
@@ -104,12 +160,8 @@ func Evolve(calcMaxDepth func(*imgut.Image) int, fun, ter []gp.Primitive, drawfu
 	imgTempPop := imgut.Create(pImgCols*settings.ImgTarget.W, pImgRows*settings.ImgTarget.H, settings.ImgTarget.ColorSpace)
 
 	// Define the operators
-	settings.CrossOver = node.MakeTree1pCrossover(settings.MaxDepth)
-	//settings.Mutate = node.MakeTreeSingleMutation(settings.Functionals, settings.Terminals)
-	treeGen := func(maxDep int) *node.Node {
-		return node.MakeTreeHalfAndHalf(maxDep, settings.Functionals, settings.Terminals)
-	}
-	settings.Mutate = node.MakeMultiMutation(settings.MaxDepth, treeGen, settings.Functionals, settings.Terminals)
+	settings.CrossOver = makeCrossover(&settings)
+	settings.Mutate = makeMultiMutation(&settings)
 
 	// Seed rng
 	if !*quiet {
@@ -164,7 +216,7 @@ func Evolve(calcMaxDepth func(*imgut.Image) int, fun, ter []gp.Primitive, drawfu
 		if g%*saveInterval == 0 {
 			snapName, snapPopName := sta.SaveSnapshot(pop, *quiet)
 			// Save best individual
-			pop.BestIndividual().Evaluate()
+			pop.BestIndividual().Fitness()
 			pop.BestIndividual().(*base.Individual).ImgTemp.WritePNG(snapName)
 			//	pop.BestIndividual().(*base.Individual).Draw(settings.ImgTemp)
 			//	settings.ImgTemp.WritePNG(snapName)
@@ -216,7 +268,7 @@ func Evolve(calcMaxDepth func(*imgut.Image) int, fun, ter []gp.Primitive, drawfu
 
 	snapName, snapPopName := sta.SaveSnapshot(pop, *quiet)
 	// Save best individual
-	pop.BestIndividual().Evaluate()
+	pop.BestIndividual().Fitness()
 	pop.BestIndividual().(*base.Individual).ImgTemp.WritePNG(snapName)
 	//	pop.BestIndividual().(*base.Individual).Draw(settings.ImgTemp)
 	//	settings.ImgTemp.WritePNG(snapName)

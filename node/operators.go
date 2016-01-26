@@ -43,7 +43,11 @@ func makeTree(depth int, funcs, terms []gp.Primitive, strategy func(int, int, in
 		}
 		return
 	} else {
-		root = &Node{terms[k], nil}
+		if terms[k].IsEphemeral() {
+			root = &Node{terms[k].Run(), nil}
+		} else {
+			root = &Node{terms[k], nil}
+		}
 		return // No need to go down for terminals
 	}
 }
@@ -121,6 +125,9 @@ func CompileTree(root *Node) gp.Primitive {
 		}
 		return root.value.Run(terms...)
 	} else {
+		if root.value.IsEphemeral() {
+			panic("Ephemerals should never be in a compilable tree!")
+		}
 		return root.value.Run()
 	}
 }
@@ -128,14 +135,10 @@ func CompileTree(root *Node) gp.Primitive {
 // Mutate the tree by changing one single node with an equivalent one in arity
 // funcs is the set of functionals (internal nodes)
 // terms is the set of terminals (leaves)
-func MakeTreeSingleMutation(funcs, terms []gp.Primitive) func(float64, *Node) bool {
-	return func(pMut float64, t1 *Node) bool {
-		// Check if it's necessary to mutate the node
-		if rand.Float64() >= pMut {
-			return false // Didn't mutate
-		}
+func MakeTreeSingleMutation(funcs, terms []gp.Primitive) func(*Node) {
+	return func(t *Node) {
 		// Get a slice with the nodes
-		nodes, _, _ := t1.Enumerate()
+		nodes, _, _ := t.Enumerate()
 		size := len(nodes)
 		// Pick a random node
 		nid := rand.Intn(size)
@@ -143,7 +146,12 @@ func MakeTreeSingleMutation(funcs, terms []gp.Primitive) func(float64, *Node) bo
 		arity := nodes[nid].value.Arity()
 		if arity <= 0 {
 			// Terminals have non-positive arity
-			nodes[nid].value = terms[rand.Intn(len(terms))]
+			k := rand.Intn(len(terms))
+			if terms[k].IsEphemeral() {
+				nodes[nid].value = terms[k].Run()
+			} else {
+				nodes[nid].value = terms[k]
+			}
 		} else {
 			// Functionals
 			sameArityFuncs := make([]gp.Primitive, 0, len(funcs))
@@ -155,12 +163,11 @@ func MakeTreeSingleMutation(funcs, terms []gp.Primitive) func(float64, *Node) bo
 			// Replace node with a random one
 			nodes[nid].value = sameArityFuncs[rand.Intn(len(sameArityFuncs))]
 		}
-		return true
 	}
 }
 
 // Go over each node and randomly mutate it with a compatible one
-func MakeTreeNodeMutation(funcs, terms []gp.Primitive) func(float64, *Node) bool {
+func MakeTreeNodeMutation(funcs, terms []gp.Primitive) func(float64, *Node) int {
 	// Build a map of primitives by arity
 	prims := make(map[int][]gp.Primitive)
 	for i := range funcs {
@@ -175,9 +182,9 @@ func MakeTreeNodeMutation(funcs, terms []gp.Primitive) func(float64, *Node) bool
 	// Terminals have arity -1
 	prims[-1] = terms
 
-	return func(pMut float64, t1 *Node) bool {
+	return func(pMut float64, t *Node) int {
 		// Get a slice with the nodes
-		nodes, _, _ := t1.Enumerate()
+		nodes, _, _ := t.Enumerate()
 		mutCount := 0
 		for i := range nodes {
 			// For each node, check if it should be mutated
@@ -187,10 +194,14 @@ func MakeTreeNodeMutation(funcs, terms []gp.Primitive) func(float64, *Node) bool
 			// If mutation occurs, pick a random node of same arity
 			arity := nodes[i].value.Arity()
 			nid := rand.Intn(len(prims[arity]))
-			nodes[i].value = prims[arity][nid]
+			if prims[arity][nid].IsEphemeral() {
+				nodes[i].value = prims[arity][nid].Run()
+			} else {
+				nodes[i].value = prims[arity][nid]
+			}
 			mutCount += 1
 		}
-		return mutCount != 0
+		return mutCount
 	}
 }
 
@@ -201,8 +212,8 @@ func swapNodes(n1, n2 *Node) {
 }
 
 // Randomly select two subrees and swap them
-func MakeSubtreeSwapMutation(funcs, terms []gp.Primitive) func(float64, *Node) bool {
-	return func(pMut float64, t *Node) bool {
+func MakeSubtreeSwapMutation(funcs, terms []gp.Primitive) func(*Node) {
+	return func(t *Node) {
 		// The tricky part is to pick two subtrees that are distinct
 		// i.e. we do not want that one tree is subtree of the other
 		// How? We can get a list of nodes and pick one, then
@@ -217,19 +228,13 @@ func MakeSubtreeSwapMutation(funcs, terms []gp.Primitive) func(float64, *Node) b
 		//unpickable, _, _ := nodes[n1].Enumerate()
 		// Trovare i genitori non è veloce... Non c'é puntatore al parent!
 		panic("NOT IMPLEMENTED YET")
-		return false
 	}
 }
 
 // Replaces a randomly selected subtree with another randomly created subtree
 // maxH describes the maximum height of the resulting tree
-func MakeSubtreeMutation(maxH int, genFunction func(maxH int) *Node) func(float64, *Node) bool {
-	return func(pMut float64, t *Node) bool {
-		// Check if mutation is necessary
-		if rand.Float64() >= pMut {
-			return false
-		}
-
+func MakeSubtreeMutation(maxH int, genFunction func(maxH int) *Node) func(*Node) {
+	return func(t *Node) {
 		// Get a slice with the nodes
 		tNodes, tDepths, tHeights := t.Enumerate()
 		size := len(tNodes)
@@ -241,23 +246,24 @@ func MakeSubtreeMutation(maxH int, genFunction func(maxH int) *Node) func(float6
 		replacement := genFunction(hLimit)
 		// Swap the content of the nodes
 		swapNodes(tNodes[nid], replacement)
-		// Replacement is discarded
-		return true
 	}
 }
 
+/*
 // Applies multiple mutations at random
 func MakeMultiMutation(maxH int, genFunction func(maxH int) *Node, funcs, terms []gp.Primitive) func(float64, *Node) bool {
 	mutFuncs := make([]func(float64, *Node) bool, 3)
 	mutFuncs[0] = MakeTreeSingleMutation(funcs, terms)
 	mutFuncs[1] = MakeTreeNodeMutation(funcs, terms)
 	mutFuncs[2] = MakeSubtreeMutation(maxH, genFunction)
+	//	mutFuncs[3] = MakeLocalNodeMutation(funcs, terms)
 
 	return func(pMut float64, t *Node) bool {
 		i := rand.Intn(len(mutFuncs))
 		return mutFuncs[i](pMut, t)
 	}
 }
+*/
 
 /*
 func intMax(n ...int) int {
@@ -272,13 +278,8 @@ func intMax(n ...int) int {
 */
 
 // Height-limited crossover, to prevent bloating
-func MakeTree1pCrossover(maxDepth int) func(float64, *Node, *Node) bool {
-	return func(pCross float64, t1, t2 *Node) bool {
-		// Check if crossover is necessary
-		if rand.Float64() >= pCross {
-			return false
-		}
-
+func MakeTree1pCrossover(maxDepth int) func(_, _ *Node) {
+	return func(t1, t2 *Node) {
 		// Get the slices for the trees, including node heights
 		t1Nodes, t1Depths, t1Heights := t1.Enumerate()
 		t2Nodes, t2Depths, t2Heights := t2.Enumerate()
@@ -320,7 +321,5 @@ func MakeTree1pCrossover(maxDepth int) func(float64, *Node, *Node) bool {
 		// Swap the nodes in the parent, so that references to nodes will be valid
 		// Swap the content of the nodes (so, we can swap also roots)
 		swapNodes(t1Nodes[rn1], t2Nodes[rn2])
-		// Return true on successful crossover
-		return true
 	}
 }

@@ -39,7 +39,7 @@ func GenSelect(pop Population, selectionSize int, generation float32, elite Indi
 			// Output the individual
 			var ind PipelineIndividual
 			ind.Ind = elite
-			ind.InitialFitness = elite.Evaluate()
+			ind.InitialFitness = elite.Fitness()
 			out <- ind
 		}
 		// Proceed regularly
@@ -47,7 +47,7 @@ func GenSelect(pop Population, selectionSize int, generation float32, elite Indi
 		for i := range sel {
 			var ind PipelineIndividual
 			ind.Ind = sel[i]
-			ind.InitialFitness = sel[i].Evaluate()
+			ind.InitialFitness = sel[i].Fitness()
 			out <- ind
 		}
 		close(out)
@@ -67,8 +67,8 @@ func GenCrossover(in <-chan PipelineIndividual, pCross float64) <-chan PipelineI
 				if ok {
 					// We got two items! Crossover
 					i1.Ind.Crossover(pCross, i2.Ind)
-					i1.CrossoverFitness = i1.Ind.Evaluate()
-					i2.CrossoverFitness = i2.Ind.Evaluate()
+					i1.CrossoverFitness = i1.Ind.Fitness()
+					i2.CrossoverFitness = i2.Ind.Fitness()
 					out <- i1
 					out <- i2
 				} else {
@@ -89,7 +89,7 @@ func GenMutate(in <-chan PipelineIndividual, pMut float64) <-chan PipelineIndivi
 	go func() {
 		for ind := range in {
 			ind.Ind.Mutate(pMut)
-			ind.MutationFitness = ind.Ind.Evaluate()
+			ind.MutationFitness = ind.Ind.Fitness()
 			out <- ind
 		}
 		close(out)

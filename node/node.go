@@ -41,13 +41,13 @@ type Node struct {
 func (root *Node) String() string {
 	if len(root.children) == 0 {
 		// Terminal node
-		return fmt.Sprintf("T{%v}", gp.FuncName(root.value))
+		return fmt.Sprintf("T{%v}", root.value.Name())
 	} else {
 		sChildren := root.children[0].String()
 		for i := 1; i < len(root.children); i++ {
 			sChildren += ", " + root.children[i].String()
 		}
-		return fmt.Sprintf("F{%v}(%v)", gp.FuncName(root.value), sChildren)
+		return fmt.Sprintf("F{%v}(%v)", root.value.Name(), sChildren)
 	}
 }
 

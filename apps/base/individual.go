@@ -25,8 +25,8 @@ type Settings struct {
 	Draw func(*Individual, *imgut.Image)
 
 	// Operators used in evolution
-	CrossOver func(float64, *node.Node, *node.Node) bool
-	Mutate    func(float64, *node.Node) bool
+	CrossOver func(float64, *Individual, *Individual) bool
+	Mutate    func(float64, *Individual) bool
 
 	// These hold general purpose statistics for debugging purposes
 	Statistics map[string]*sequence.SequenceStats // Custom stats
@@ -45,7 +45,11 @@ func (ind *Individual) String() string {
 }
 
 func (ind *Individual) Fitness() ga.Fitness {
-	return ind.fitness
+	if !ind.fitIsValid {
+		return ind.Evaluate()
+	} else {
+		return ind.fitness
+	}
 }
 
 func (ind *Individual) Copy() ga.Individual {
@@ -54,8 +58,9 @@ func (ind *Individual) Copy() ga.Individual {
 }
 
 func (ind *Individual) Crossover(pCross float64, mate ga.Individual) {
-	if ind.set.CrossOver(pCross, ind.Node, mate.(*Individual).Node) {
-		ind.fitIsValid, mate.(*Individual).fitIsValid = false, false
+	if ind.set.CrossOver(pCross, ind, mate.(*Individual)) {
+		ind.Invalidate()
+		mate.(*Individual).Invalidate()
 	}
 }
 
@@ -63,39 +68,37 @@ func (ind *Individual) Draw(img *imgut.Image) {
 	ind.set.Draw(ind, img)
 }
 
+// This method sould always evaluate, eventually saving to cache
 func (ind *Individual) Evaluate() ga.Fitness {
-	// Compute only if necessary
-	if !ind.fitIsValid {
-		// Draw the individual
-		ind.set.Draw(ind, ind.ImgTemp)
-		// Compute RMSE
-		rmse := imgut.PixelRMSE(ind.ImgTemp, ind.set.ImgTarget)
-		// Compute edge detection
-		edgeKern := &imgut.ConvolutionMatrix{3, []float64{
-			0, 1, 0,
-			1, -4, 1,
-			0, 1, 0},
-		}
-		imgEdge := imgut.ApplyConvolution(edgeKern, ind.ImgTemp)
-		targEdge := imgut.ApplyConvolution(edgeKern, ind.set.ImgTarget) // XXX this could be computed once
-		// Compute distance between edges
-		edRmse := imgut.PixelRMSE(imgEdge, targEdge)
-
-		// Statistics on output values
-		if _, ok := ind.set.Statistics["sub-fit-plain"]; !ok {
-			ind.set.Statistics["sub-fit-plain"] = sequence.Create()
-		}
-		ind.set.Statistics["sub-fit-plain"].Observe(rmse)
-
-		if _, ok := ind.set.Statistics["sub-fit-edged"]; !ok {
-			ind.set.Statistics["sub-fit-edged"] = sequence.Create()
-		}
-		ind.set.Statistics["sub-fit-edged"].Observe(edRmse)
-
-		// Weighted fitness
-		ind.fitness = ga.Fitness(rmse * edRmse)
-		ind.fitIsValid = true
+	// Draw the individual
+	ind.set.Draw(ind, ind.ImgTemp)
+	// Compute RMSE
+	rmse := imgut.PixelRMSE(ind.ImgTemp, ind.set.ImgTarget)
+	// Compute edge detection
+	edgeKern := &imgut.ConvolutionMatrix{3, []float64{
+		0, 1, 0,
+		1, -4, 1,
+		0, 1, 0},
 	}
+	imgEdge := imgut.ApplyConvolution(edgeKern, ind.ImgTemp)
+	targEdge := imgut.ApplyConvolution(edgeKern, ind.set.ImgTarget) // XXX this could be computed once
+	// Compute distance between edges
+	edRmse := imgut.PixelRMSE(imgEdge, targEdge)
+
+	// Statistics on output values
+	if _, ok := ind.set.Statistics["sub-fit-plain"]; !ok {
+		ind.set.Statistics["sub-fit-plain"] = sequence.Create()
+	}
+	ind.set.Statistics["sub-fit-plain"].Observe(rmse)
+
+	if _, ok := ind.set.Statistics["sub-fit-edged"]; !ok {
+		ind.set.Statistics["sub-fit-edged"] = sequence.Create()
+	}
+	ind.set.Statistics["sub-fit-edged"].Observe(edRmse)
+
+	// Weighted fitness
+	ind.fitness = ga.Fitness(rmse * edRmse)
+	ind.fitIsValid = true
 	return ind.fitness
 }
 
@@ -103,14 +106,17 @@ func (ind *Individual) FitnessValid() bool {
 	return ind.fitIsValid
 }
 
+func (ind *Individual) Invalidate() {
+	ind.fitIsValid = false
+}
+
 func (ind *Individual) Initialize() {
 	ind.Node = node.MakeTreeHalfAndHalf(ind.set.MaxDepth, ind.set.Functionals, ind.set.Terminals)
 	ind.ImgTemp = imgut.Create(ind.set.ImgTarget.W, ind.set.ImgTarget.H, ind.set.ImgTarget.ColorSpace)
 }
 
-// BUG(akiross) the mutation used here replaces a single, random.Node with an equivalent one - same as in DEAP - but we should go over each.Node and apply mutation probability
 func (ind *Individual) Mutate(pMut float64) {
-	if ind.set.Mutate(pMut, ind.Node) {
-		ind.fitIsValid = false
+	if ind.set.Mutate(pMut, ind) {
+		ind.Invalidate()
 	}
 }
