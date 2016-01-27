@@ -74,30 +74,34 @@ func (ind *Individual) Evaluate() ga.Fitness {
 	ind.set.Draw(ind, ind.ImgTemp)
 	// Compute RMSE
 	rmse := imgut.PixelRMSE(ind.ImgTemp, ind.set.ImgTarget)
-	// Compute edge detection
-	edgeKern := &imgut.ConvolutionMatrix{3, []float64{
-		0, 1, 0,
-		1, -4, 1,
-		0, 1, 0},
-	}
-	imgEdge := imgut.ApplyConvolution(edgeKern, ind.ImgTemp)
-	targEdge := imgut.ApplyConvolution(edgeKern, ind.set.ImgTarget) // XXX this could be computed once
-	// Compute distance between edges
-	edRmse := imgut.PixelRMSE(imgEdge, targEdge)
+	ind.fitness = ga.Fitness(rmse)
 
-	// Statistics on output values
-	if _, ok := ind.set.Statistics["sub-fit-plain"]; !ok {
-		ind.set.Statistics["sub-fit-plain"] = sequence.Create()
-	}
-	ind.set.Statistics["sub-fit-plain"].Observe(rmse)
+	// When true, it will multiply by edge-detection RMSE
+	if false {
+		// Compute edge detection
+		edgeKern := &imgut.ConvolutionMatrix{3, []float64{
+			0, 1, 0,
+			1, -4, 1,
+			0, 1, 0},
+		}
+		imgEdge := imgut.ApplyConvolution(edgeKern, ind.ImgTemp)
+		targEdge := imgut.ApplyConvolution(edgeKern, ind.set.ImgTarget) // XXX this could be computed once
+		// Compute distance between edges
+		edRmse := imgut.PixelRMSE(imgEdge, targEdge)
 
-	if _, ok := ind.set.Statistics["sub-fit-edged"]; !ok {
-		ind.set.Statistics["sub-fit-edged"] = sequence.Create()
-	}
-	ind.set.Statistics["sub-fit-edged"].Observe(edRmse)
+		// Statistics on output values
+		if _, ok := ind.set.Statistics["sub-fit-plain"]; !ok {
+			ind.set.Statistics["sub-fit-plain"] = sequence.Create()
+		}
+		ind.set.Statistics["sub-fit-plain"].Observe(rmse)
 
-	// Weighted fitness
-	ind.fitness = ga.Fitness(rmse * edRmse)
+		if _, ok := ind.set.Statistics["sub-fit-edged"]; !ok {
+			ind.set.Statistics["sub-fit-edged"] = sequence.Create()
+		}
+		ind.set.Statistics["sub-fit-edged"].Observe(edRmse)
+		// Weighted fitness
+		ind.fitness = ga.Fitness(rmse * edRmse)
+	}
 	ind.fitIsValid = true
 	return ind.fitness
 }
