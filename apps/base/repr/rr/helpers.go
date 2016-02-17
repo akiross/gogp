@@ -16,7 +16,7 @@ import (
 
 // Define primitives
 var Functionals []gp.Primitive = []gp.Primitive{rr.MakeHSplit(), rr.MakeVSplit()}
-var Terminals []gp.Primitive = []gp.Primitive{rr.MakeEphimeral("MakeFull", MakeFullColor), rr.MakeEphimeral("MakeShade", MakeShadeColor)}
+var Terminals []gp.Primitive = []gp.Primitive{}
 
 func Draw(ind *node.Node, img *imgut.Image) {
 	// We have to compile the nodes
@@ -53,18 +53,35 @@ func MakeShadeColor() *rr.Primitive {
 }
 
 func init() {
-	//	Terminals = append(Terminals, rr.MakeTerminal("White", rr.Filler(1.0, 1.0, 1.0)))
-	/*
-		// Build some colors
-		count := 8 // number of total colors, from black to white
-		for i := 0; i <= count; i++ {
-			c := float64(i) / float64(count)
-			Terminals = append(Terminals, vhs.Terminal(vhs.Filler(c, c, c, 1)))
-			TermNames = append(TermNames, fmt.Sprintf("T_%d", int(c*256)))
+	// Insert ephemeral colors and shades
+	if false {
+		Terminals = append(Terminals, rr.MakeEphimeral("MakeFull", MakeFullColor))
+		Terminals = append(Terminals, rr.MakeEphimeral("MakeShade", MakeShadeColor))
+	}
+	// Build some solid colors
+	if true {
+		count := 16 // Number of total colors, from black to white
+		for i := 0; i < count; i++ {
+			c := float64(i) / float64(count-1)
+			name := fmt.Sprintf("G%X", c)
+			Terminals = append(Terminals, rr.MakeTerminal(name, rr.Filler(c, c, c, 1)))
 		}
-
-		count = 8
+	}
+	// Build some shades
+	/* shading positions are limited to a grid of discrete end/start points.
+	a     b     c       For example, with 3 points on each axis, we are
+	|     |     |       limited to 9 possible starting and ending points
+	+-----+-----+- a    in this way, we reduce the space of terminals
+	|           |       and make easier to identify each terminal with a
+	|           +- b    simple, textual name, for example
+	|           |       LFaaEbc means that we have a shading from white (F)
+	+-----------+- c    to light gray (E) from position (a, a) to position (b, c)
+	*/
+	if false {
+		count := 8
 		reps := 8
+		// TODO we didn't implement the strategy above yet.
+		//sidePoints := 8
 		for i := 0; i <= count; i++ {
 			c := float64(i) / float64(count)
 			for j := i + 1; j <= count; j++ {
@@ -72,10 +89,11 @@ func init() {
 				// Multiple copie
 				for n := 0; n < reps; n++ {
 					sx, sy, ex, ey := rand.Float64(), rand.Float64(), rand.Float64(), rand.Float64()
-					Terminals = append(Terminals, vhs.Terminal(vhs.LinShade(c, k, sx, sy, ex, ey)))
-					TermNames = append(TermNames, fmt.Sprintf("T_%d-%d_%d-%d_%d-%d", int(c*256), int(k*256), int(sx*100), int(sy*100), int(ex*100), int(ey*100)))
+					name := fmt.Sprintf("L_%d-%d_%d-%d_%d-%d", int(c*256), int(k*256), int(sx*100), int(sy*100), int(ex*100), int(ey*100))
+					Terminals = append(Terminals, rr.MakeTerminal(name, rr.LinShade(c, k, sx, sy, ex, ey)))
 				}
 			}
 		}
-	*/
+
+	}
 }

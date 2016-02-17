@@ -87,19 +87,47 @@ func (pop *Population) Select(n int, gen float32) ([]ga.Individual, error) {
 
 	// Slice to store the new population
 	newPop := make([]ga.Individual, selectionSize)
-	for i := 0; i < selectionSize; i++ {
-		// Sample some individuals using fitness tournament
-		sample := make([]*Individual, divSize)
-		for i := range sample {
-			// Sample some random individuals for tournament
+
+	switch "Tournament" {
+	case "Tournament":
+		for i := 0; i < selectionSize; i++ {
+			// Sample random individuals for tournament
 			players := SampleRandom(pop.Pop, tournSize)
-			// Do fitness tournament and save winner to sample
-			sample[i] = SampleTournament(players, pop.BetterThan)
+			// Perform tournament using fitness
+			best := SampleTournament(players, pop.BetterThan)
+			// Save best to population
+			newPop[i] = best.Copy()
 		}
-		// Now perform tournament using diversity
-		best := SampleSMDTournament(sample)
-		// Save best to population
-		newPop[i] = best.Copy()
+	case "RMAD":
+		for i := 0; i < selectionSize; i++ {
+			// Sample some individuals using diversity tournament
+			sample := make([]*Individual, tournSize)
+			for i := range sample {
+				// Sample some random individuals for tournament
+				players := SampleRandom(pop.Pop, divSize)
+				// Do fitness tournament and save winner to sample
+				sample[i] = SampleSMDTournament(players)
+			}
+			// Now perform tournament using fitness
+			best := SampleTournament(sample, pop.BetterThan)
+			// Save best to population
+			newPop[i] = best.Copy()
+		}
+	case "IRMAD":
+		for i := 0; i < selectionSize; i++ {
+			// Sample some individuals using fitness tournament
+			sample := make([]*Individual, divSize)
+			for i := range sample {
+				// Sample some random individuals for tournament
+				players := SampleRandom(pop.Pop, tournSize)
+				// Do fitness tournament and save winner to sample
+				sample[i] = SampleTournament(players, pop.BetterThan)
+			}
+			// Now perform tournament using diversity
+			best := SampleSMDTournament(sample)
+			// Save best to population
+			newPop[i] = best.Copy()
+		}
 	}
 
 	return newPop, nil

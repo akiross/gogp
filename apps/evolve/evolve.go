@@ -249,7 +249,7 @@ func Evolve(calcMaxDepth func(*imgut.Image) int, fun, ter []gp.Primitive, drawfu
 		}
 
 		// When elitism is activated, get best individual
-		if true {
+		if false {
 			elite = pop.BestIndividual()
 		}
 

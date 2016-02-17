@@ -148,8 +148,8 @@ func (img *Image) LinearShade(x1, y1, x2, y2, sx, sy, ex, ey, startCol, endCol f
 }
 
 func (img *Image) CircularShade(cx, cy, inRad, outRad, startCol, endCol float64) {
-	pixPtr, stride := getDataPointer(img)
-	C.circularShading(pixPtr, stride, C.int(cx), C.int(cy))
+	//	pixPtr, stride := getDataPointer(img)
+	//	C.circularShading(pixPtr, stride, C.int(cx), C.int(cy))
 }
 
 // Copy image onto the target image, at specified position
