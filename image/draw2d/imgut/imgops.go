@@ -147,6 +147,11 @@ func (img *Image) LinearShade(x1, y1, x2, y2, sx, sy, ex, ey, startCol, endCol f
 	C.linearShading(pixPtr, stride, C.int(x1), C.int(y1), C.int(x2), C.int(y2), C.double(startCol), C.double(endCol), C.double(sx), C.double(sy), C.double(ex), C.double(ey))
 }
 
+func (img *Image) CircularShade(cx, cy, inRad, outRad, startCol, endCol float64) {
+	pixPtr, stride := getDataPointer(img)
+	C.circularShading(pixPtr, stride, C.int(cx), C.int(cy))
+}
+
 // Copy image onto the target image, at specified position
 func (i *Image) Blit(x, y int, target *Image) {
 	destPoint := image.Pt(x, y)

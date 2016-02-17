@@ -84,3 +84,9 @@ func LinShade(startCol, endCol, sx, sy, ex, ey float64) RenderFunc {
 		img.LinearShade(x1, y1, x2, y2, sx, sy, ex, ey, startCol, endCol)
 	}
 }
+
+func CircShade(startCol, endCol, sx, sy, ex, ey, cx, cy, inRad, outRad float64) RenderFunc {
+	return func(x1, y1, x2, y2 float64, img *imgut.Image) {
+		img.CircularShade(x1, y1, x2, y2, cx, cy, inRad, outRad, startCol, endCol)
+	}
+}

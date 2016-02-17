@@ -16,7 +16,7 @@ type Configuration interface {
 }
 
 // Take a solution and perform one step of HC
-func HillStep(N int, sol Solution) (Solution, bool) {
+func Step(N int, sol Solution) (Solution, bool) {
 	changes := false
 	// Pick best among the N neighbors
 	for i := 0; i < N; i++ {
@@ -37,7 +37,7 @@ func HillClimbingStart(start Solution, conf Configuration) Solution {
 	for i := 0; ; i++ {
 		fmt.Println("Iteration", i)
 		// Perform one step
-		sol, changes := HillStep(conf.NeighborhoodSize(), cs)
+		sol, changes := Step(conf.NeighborhoodSize(), cs)
 		// If no improvement, stop, else move there
 		if !changes {
 			fmt.Println("There were no changes!")
