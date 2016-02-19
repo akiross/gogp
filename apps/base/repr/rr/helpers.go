@@ -53,13 +53,16 @@ func MakeShadeColor() *rr.Primitive {
 }
 
 func init() {
-	// Insert ephemeral colors and shades
-	if false {
+	// Insert ephemeral colors
+	if true {
 		Terminals = append(Terminals, rr.MakeEphimeral("MakeFull", MakeFullColor))
+	}
+	// Insert ephemeral linear shades
+	if false {
 		Terminals = append(Terminals, rr.MakeEphimeral("MakeShade", MakeShadeColor))
 	}
 	// Build some solid colors
-	if true {
+	if false {
 		count := 16 // Number of total colors, from black to white
 		for i := 0; i < count; i++ {
 			c := float64(i) / float64(count-1)
