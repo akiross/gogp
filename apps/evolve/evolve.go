@@ -139,7 +139,7 @@ func Evolve(calcMaxDepth func(*imgut.Image) int, fun, ter []gp.Primitive, drawfu
 	var err error
 	settings.ImgTarget, err = imgut.Load(*targetPath)
 	if err != nil {
-		fmt.Println("ERROR: Cannot load image", *targetPath)
+		fmt.Fprintln(os.Stderr, "ERROR: Cannot load image", *targetPath)
 		panic("Cannot load image")
 	}
 	if !*quiet {
@@ -218,6 +218,8 @@ func Evolve(calcMaxDepth func(*imgut.Image) int, fun, ter []gp.Primitive, drawfu
 			// Save best individual
 			pop.BestIndividual().Fitness()
 			pop.BestIndividual().(*base.Individual).ImgTemp.WritePNG(snapName)
+			// Save best individual code
+
 			//	pop.BestIndividual().(*base.Individual).Draw(settings.ImgTemp)
 			//	settings.ImgTemp.WritePNG(snapName)
 			// Save pop images
