@@ -44,6 +44,10 @@ func (ind *Individual) String() string {
 	return fmt.Sprint(ind.Node)
 }
 
+func (ind *Individual) MarshalJSON() ([]byte, error) {
+	return ind.Node.MarshalJSON()
+}
+
 func (ind *Individual) Fitness() ga.Fitness {
 	if !ind.fitIsValid {
 		return ind.Evaluate()
