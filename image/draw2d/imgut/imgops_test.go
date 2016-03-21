@@ -1,6 +1,7 @@
 package imgut
 
 import (
+	"github.com/gonum/floats"
 	"image/color"
 	"math/rand"
 	"testing"
@@ -113,6 +114,21 @@ func TestComposition(t *testing.T) {
 	img1.WritePNG("img1.png")
 	img2.WritePNG("img2.png")
 	img3.WritePNG("img3.png")
+}
+
+func TestSliceDonversion(t *testing.T) {
+	//	 ToSlice(img *Image) []float64
+	//FromSlice(img *Image, data []float64) {
+	path := "lena.png"
+	t.Log("Loading sample image...")
+	img, err := Load(path)
+	if err != nil {
+		t.Error("Cannot load the image we just saved!! WTF?!?!")
+	}
+	slice := ToSlice(img)
+	floats.AddConst(100, slice[0:128*128*4])
+	FromSlice(img, slice)
+	img.WritePNG("ciccia.png")
 }
 
 // Bah, not working

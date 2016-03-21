@@ -268,6 +268,59 @@ func PixelDistance(i1, i2 *Image) (rmse float64) {
 }
 */
 
+func clamp8(v float64) uint8 {
+	if int(v) < 0 {
+		return 0
+	} else if int(v) > 255 {
+		return 255
+	}
+	return uint8(v)
+}
+
+func ToSlice(img *Image) []float64 {
+	surf := img.Surf
+	cm := surf.ColorModel()
+	b := surf.Bounds()
+	minX, maxX := b.Min.X, b.Max.X
+	minY, maxY := b.Min.Y, b.Max.Y
+	data := make([]float64, (maxX-minX)*(maxY-minY)*4)
+	k := 0
+	for i := b.Min.Y; i < b.Max.Y; i++ {
+		for j := b.Min.X; j < b.Max.X; j++ {
+			pix := surf.At(j, i)
+			col := cm.Convert(pix).(color.RGBA)
+			data[k+0] = float64(col.R)
+			data[k+1] = float64(col.G)
+			data[k+2] = float64(col.B)
+			data[k+3] = float64(col.A)
+			k += 4
+		}
+	}
+	return data
+}
+
+func FromSlice(img *Image, data []float64) {
+	surf := img.Surf
+	cm := surf.ColorModel()
+	b := surf.Bounds()
+	minX, maxX := b.Min.X, b.Max.X
+	minY, maxY := b.Min.Y, b.Max.Y
+	k := 0
+	for i := minY; i < maxY; i++ {
+		for j := minX; j < maxX; j++ {
+			const mk = 0xff
+			outCol := color.RGBA{
+				clamp8(data[k+0]) & mk,
+				clamp8(data[k+1]) & mk,
+				clamp8(data[k+2]) & mk,
+				clamp8(data[k+3]) & mk,
+			}
+			k += 4
+			img.Surf.Set(j, i, cm.Convert(outCol))
+		}
+	}
+}
+
 // Compute the distance between two images, pixel by pixel (RSME)
 func PixelRMSE(i1, i2 *Image) (rmse float64) {
 	// Check that sizes are the same
@@ -341,15 +394,6 @@ func (cm *ConvolutionMatrix) Normalize() {
 	for i := range cm.Data {
 		cm.Data[i] /= tot
 	}
-}
-
-func clamp8(v float64) uint8 {
-	if int(v) < 0 {
-		return 0
-	} else if int(v) > 255 {
-		return 255
-	}
-	return uint8(v)
 }
 
 // WARNING: This function does NOT apply the convolution filter on alpha
