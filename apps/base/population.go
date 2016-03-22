@@ -98,7 +98,7 @@ func (pop *Population) Select(n int, gen float32) ([]ga.Individual, error) {
 			// Save best to population
 			newPop[i] = best.Copy()
 		}
-	case "RMAD":
+	case "RMAD": // Relative Maximum Average Diversity
 		for i := 0; i < selectionSize; i++ {
 			// Sample some individuals using diversity tournament
 			sample := make([]*Individual, tournSize)
@@ -113,7 +113,7 @@ func (pop *Population) Select(n int, gen float32) ([]ga.Individual, error) {
 			// Save best to population
 			newPop[i] = best.Copy()
 		}
-	case "IRMAD":
+	case "IRMAD": // Inverse RMAD
 		for i := 0; i < selectionSize; i++ {
 			// Sample some individuals using fitness tournament
 			sample := make([]*Individual, divSize)
