@@ -39,7 +39,7 @@ func MaxDepth(img *imgut.Image) int {
 
 func MakeFullColor() *rr.Primitive {
 	c := rand.Float64()
-	name := fmt.Sprintf("T_%d", int(c*256))
+	name := fmt.Sprintf("T_%d", int(c*255))
 	return rr.MakeTerminal(name, rr.Filler(c, c, c))
 }
 
