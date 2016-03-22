@@ -7,6 +7,8 @@ import (
 	"github.com/akiross/gogp/image/draw2d/imgut"
 	"github.com/akiross/gogp/node"
 	"github.com/akiross/gogp/util/stats/sequence"
+	"github.com/gonum/floats"
+	"math"
 )
 
 type Settings struct {
@@ -76,9 +78,52 @@ func (ind *Individual) Draw(img *imgut.Image) {
 func (ind *Individual) Evaluate() ga.Fitness {
 	// Draw the individual
 	ind.set.Draw(ind, ind.ImgTemp)
-	// Compute RMSE
-	rmse := imgut.PixelRMSE(ind.ImgTemp, ind.set.ImgTarget)
-	ind.fitness = ga.Fitness(rmse)
+
+	var rmse float64
+
+	if true { // Linear scaling
+		// Images to vector
+		dataInd := imgut.ToSlice(ind.ImgTemp)
+		dataTarg := imgut.ToSlice(ind.set.ImgTarget)
+		// Compute average pixels
+		avgy := floats.Sum(dataInd) / float64(len(dataInd))
+		avgt := floats.Sum(dataTarg) / float64(len(dataTarg))
+
+		// Difference y - avgy
+		y_avgy := make([]float64, len(dataInd))
+		copy(y_avgy, dataInd)
+		floats.AddConst(-avgy, y_avgy)
+		// Difference t - avgt
+		t_avgt := make([]float64, len(dataTarg))
+		copy(t_avgt, dataTarg)
+		floats.AddConst(-avgt, t_avgt)
+		// Multuplication (t - avgt)(y - avgy)
+		floats.Mul(t_avgt, y_avgy)
+		// Summation
+		numerator := floats.Sum(t_avgt)
+		// Square (y - avgy)^2
+		floats.Mul(y_avgy, y_avgy)
+		denomin := floats.Sum(y_avgy)
+		// Compute b-value
+		b := numerator / denomin
+		// Compute a-value
+		a := avgt - b*avgy
+
+		// Compute now the scaled RMSE, using y' = a + b*y
+		floats.Scale(b, dataInd)      // b*y
+		floats.AddConst(a, dataInd)   // a + b*y
+		floats.Sub(dataInd, dataTarg) // (a + b * y - t)
+		floats.Mul(dataInd, dataInd)  // (a + b * y - t)^2
+		total := floats.Sum(dataInd)  // Sum(...)
+		rmse = math.Sqrt(total / float64(len(dataInd)))
+
+		// Save RMSE as fitness
+		ind.fitness = ga.Fitness(rmse)
+	} else { // Normal RMSE image
+		// Compute RMSE
+		rmse = imgut.PixelRMSE(ind.ImgTemp, ind.set.ImgTarget)
+		ind.fitness = ga.Fitness(rmse)
+	}
 
 	// When true, it will multiply by edge-detection RMSE
 	if false {
