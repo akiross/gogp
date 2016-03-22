@@ -52,14 +52,48 @@ func MakeShadeColor() *rr.Primitive {
 	return rr.MakeTerminal(name, rr.LinShade(c, k, sx, sy, ex, ey))
 }
 
+func makeDiagFill() *rr.Primitive {
+	// Pick two random colors
+	c, k := rand.Float64(), rand.Float64()
+	// Pick a random diagonal
+	d := rand.Intn(2) == 0
+	var name string
+	if d {
+		name = fmt.Sprintf("dF_%x-%x", int(c*256), int(k*256))
+	} else {
+		name = fmt.Sprintf("Df_%x-%x", int(c*256), int(k*256))
+	}
+	return rr.MakeTerminal(name, rr.DiagShade(c, k, d))
+}
+
+func makeDiagLine() *rr.Primitive {
+	// Pick random back/foreground colors
+	b, f := rand.Float64(), rand.Float64()
+	// Pick a random diagonal
+	d := rand.Intn(2) == 0
+	// Pick a random line size
+	s := rand.Intn(16)
+	var name string
+	if d {
+		name = fmt.Sprintf("dL_%x_%x-%x", int(s*16), int(b*256), int(f*256))
+	} else {
+		name = fmt.Sprintf("Dl_%x_%x-%x", int(s*16), int(b*256), int(f*256))
+	}
+	return rr.MakeTerminal(name, rr.DiagLine(b, f, d, s))
+}
+
 func init() {
 	// Insert ephemeral colors and shades
 	if false {
 		Terminals = append(Terminals, rr.MakeEphimeral("MakeFull", MakeFullColor))
 		Terminals = append(Terminals, rr.MakeEphimeral("MakeShade", MakeShadeColor))
 	}
-	// Build some solid colors
 	if true {
+		Terminals = append(Terminals, rr.MakeEphimeral("MakeDiagFill", makeDiagFill))
+		Terminals = append(Terminals, rr.MakeEphimeral("MakeDiagLine", makeDiagLine))
+	}
+	// Build some solid colors
+	if false {
 		count := 16 // Number of total colors, from black to white
 		for i := 0; i < count; i++ {
 			c := float64(i) / float64(count-1)

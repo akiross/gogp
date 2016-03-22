@@ -85,6 +85,65 @@ func LinShade(startCol, endCol, sx, sy, ex, ey float64) RenderFunc {
 	}
 }
 
+func DiagShade(startCol, endCol float64, diagonal bool) RenderFunc {
+	return func(x1, y1, x2, y2 float64, img *imgut.Image) {
+		img.FillRect(x1, y1, x2, y2, startCol, startCol, startCol)
+		if diagonal {
+			img.DrawPoly(x1, y1, x2, y1, x2, y2)
+		} else {
+			img.DrawPoly(x1, y2, x2, y2, x2, y1)
+		}
+		img.FillColor(endCol, endCol, endCol)
+	}
+}
+
+/* Make a render function for a diagonal line.
+This is not a real "line", it is more a polygon, which may be very skewed.
+
+  A +----x----+ B
+    |         |
+	x         x
+	|         |
+  C +----x----+ D
+
+Given a diagonal, for example AD, the algorithm will draw a polygon going
+from AxB to BxD and from AxC to CxD, where the point x is determined by
+size. The size is a number going from 0 to 15.
+Given a side, for example AB, call H half of the length of this size.
+The point x on this side is determined by (size/15)*H if A is the corner where
+the diagonal starts, or (1 - size/15)*H if B is the corner where the diagonal
+starts.
+*/
+func DiagLine(bgCol, fgCol float64, diagonal bool, size int) RenderFunc {
+	return func(x1, y1, x2, y2 float64, img *imgut.Image) {
+		img.FillRect(x1, y1, x2, y2, bgCol, bgCol, bgCol)
+		fs := float64(size) / 15.0
+		sDx, sDy := fs*(x2-x1)*0.5, fs*(y2-y1)*0.5
+		if diagonal {
+			// Diagonal from (x1,y1) to (x2,y2)
+			img.DrawPoly(
+				x1, y1,
+				x1+sDx, y1,
+				x2, y2-sDy,
+				x2, y2,
+				x2-sDx, y2,
+				x1, y1+sDy,
+			)
+		} else {
+			// Diagonal from (x1,y2) to (x2,y1)
+			img.DrawPoly(
+				x1, y2,
+				x1, y2-sDy,
+				x2-sDx, y1,
+				x2, y1,
+				x2, y1+sDy,
+				x1+sDx, y2,
+			)
+		}
+		img.FillColor(fgCol, fgCol, fgCol)
+	}
+}
+
 /*
 func CircShade(startCol, endCol, sx, sy, ex, ey, cx, cy, inRad, outRad float64) RenderFunc {
 	return func(x1, y1, x2, y2 float64, img *imgut.Image) {
