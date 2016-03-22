@@ -48,7 +48,7 @@ func MakeShadeColor() *rr.Primitive {
 	c, k := rand.Float64(), rand.Float64()
 	// Pick random positions
 	sx, sy, ex, ey := rand.Float64(), rand.Float64(), rand.Float64(), rand.Float64()
-	name := fmt.Sprintf("EPH_%x-%x_%d-%d_%d-%d", int(c*256), int(k*256), int(sx*100), int(sy*100), int(ex*100), int(ey*100))
+	name := fmt.Sprintf("EPH_%x-%x_%d-%d_%d-%d", int(c*255), int(k*255), int(sx*100), int(sy*100), int(ex*100), int(ey*100))
 	return rr.MakeTerminal(name, rr.LinShade(c, k, sx, sy, ex, ey))
 }
 
@@ -59,9 +59,9 @@ func makeDiagFill() *rr.Primitive {
 	d := rand.Intn(2) == 0
 	var name string
 	if d {
-		name = fmt.Sprintf("dF_%x-%x", int(c*256), int(k*256))
+		name = fmt.Sprintf("dF_%x-%x", int(c*255), int(k*255))
 	} else {
-		name = fmt.Sprintf("Df_%x-%x", int(c*256), int(k*256))
+		name = fmt.Sprintf("Df_%x-%x", int(c*255), int(k*255))
 	}
 	return rr.MakeTerminal(name, rr.DiagShade(c, k, d))
 }
@@ -75,9 +75,9 @@ func makeDiagLine() *rr.Primitive {
 	s := rand.Intn(16)
 	var name string
 	if d {
-		name = fmt.Sprintf("dL_%x_%x-%x", int(s*16), int(b*256), int(f*256))
+		name = fmt.Sprintf("dL_%x_%x-%x", int(s*15), int(b*255), int(f*255))
 	} else {
-		name = fmt.Sprintf("Dl_%x_%x-%x", int(s*16), int(b*256), int(f*256))
+		name = fmt.Sprintf("Dl_%x_%x-%x", int(s*15), int(b*255), int(f*255))
 	}
 	return rr.MakeTerminal(name, rr.DiagLine(b, f, d, s))
 }
