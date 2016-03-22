@@ -27,6 +27,7 @@ package node
 import (
 	"bytes"
 	"container/list"
+	"encoding/json"
 	"fmt"
 	"github.com/akiross/gogp/gp"
 	"os/exec"
@@ -48,6 +49,19 @@ func (root *Node) String() string {
 			sChildren += ", " + root.children[i].String()
 		}
 		return fmt.Sprintf("F{%v}(%v)", root.value.Name(), sChildren)
+	}
+}
+
+func (root *Node) MarshalJSON() ([]byte, error) {
+	if len(root.children) == 0 {
+		return json.Marshal(map[string]interface{}{
+			"terminal": root.value.Name(),
+		})
+	} else {
+		return json.Marshal(map[string]interface{}{
+			"functional": root.value.Name(),
+			"children":   root.children,
+		}) //.children) //[]byte(`{"node":"foo"}`), nil
 	}
 }
 

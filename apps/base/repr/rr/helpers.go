@@ -48,7 +48,7 @@ func MakeShadeColor() *rr.Primitive {
 	c, k := rand.Float64(), rand.Float64()
 	// Pick random positions
 	sx, sy, ex, ey := rand.Float64(), rand.Float64(), rand.Float64(), rand.Float64()
-	name := fmt.Sprintf("EPH_%x-%x_%d-%d_%d-%d", int(c*256), int(k*256), int(sx*100), int(sy*100), int(ex*100), int(ey*100))
+	name := fmt.Sprintf("EPH_%x-%x_%d-%d_%d-%d", int(c*255), int(k*255), int(sx*100), int(sy*100), int(ex*100), int(ey*100))
 	return rr.MakeTerminal(name, rr.LinShade(c, k, sx, sy, ex, ey))
 }
 
@@ -63,7 +63,7 @@ func init() {
 		count := 16 // Number of total colors, from black to white
 		for i := 0; i < count; i++ {
 			c := float64(i) / float64(count-1)
-			name := fmt.Sprintf("G%X", c)
+			name := fmt.Sprintf("G%02X", int(c*255))
 			Terminals = append(Terminals, rr.MakeTerminal(name, rr.Filler(c, c, c, 1)))
 		}
 	}
@@ -89,7 +89,7 @@ func init() {
 				// Multiple copie
 				for n := 0; n < reps; n++ {
 					sx, sy, ex, ey := rand.Float64(), rand.Float64(), rand.Float64(), rand.Float64()
-					name := fmt.Sprintf("L_%d-%d_%d-%d_%d-%d", int(c*256), int(k*256), int(sx*100), int(sy*100), int(ex*100), int(ey*100))
+					name := fmt.Sprintf("L_%d-%d_%d-%d_%d-%d", int(c*255), int(k*255), int(sx*100), int(sy*100), int(ex*100), int(ey*100))
 					Terminals = append(Terminals, rr.MakeTerminal(name, rr.LinShade(c, k, sx, sy, ex, ey)))
 				}
 			}
