@@ -59,9 +59,9 @@ func makeDiagFill() *rr.Primitive {
 	d := rand.Intn(2) == 0
 	var name string
 	if d {
-		name = fmt.Sprintf("dF_%x-%x", int(c*255), int(k*255))
-	} else {
 		name = fmt.Sprintf("Df_%x-%x", int(c*255), int(k*255))
+	} else {
+		name = fmt.Sprintf("dF_%x-%x", int(c*255), int(k*255))
 	}
 	return rr.MakeTerminal(name, rr.DiagShade(c, k, d))
 }
@@ -75,9 +75,9 @@ func makeDiagLine() *rr.Primitive {
 	s := rand.Intn(16)
 	var name string
 	if d {
-		name = fmt.Sprintf("dL_%x_%x-%x", int(s*15), int(b*255), int(f*255))
-	} else {
 		name = fmt.Sprintf("Dl_%x_%x-%x", int(s*15), int(b*255), int(f*255))
+	} else {
+		name = fmt.Sprintf("dL_%x_%x-%x", int(s*15), int(b*255), int(f*255))
 	}
 	return rr.MakeTerminal(name, rr.DiagLine(b, f, d, s))
 }
