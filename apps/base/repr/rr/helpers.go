@@ -53,9 +53,12 @@ func MakeShadeColor() *rr.Primitive {
 }
 
 func init() {
-	// Insert ephemeral colors and shades
+	// Insert ephemeral colors
 	if true {
 		Terminals = append(Terminals, rr.MakeEphimeral("MakeFull", MakeFullColor))
+	}
+	// Insert ephemeral linear shades
+	if false {
 		Terminals = append(Terminals, rr.MakeEphimeral("MakeShade", MakeShadeColor))
 	}
 	// Build some solid colors
