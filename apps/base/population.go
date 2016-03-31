@@ -132,6 +132,8 @@ func (pop *Population) Select(n int, gen float32) ([]ga.Individual, error) {
 			// Save best to population
 			newPop[i] = best.Copy()
 		}
+	default: // Error
+		panic("Invalid selection method!")
 	}
 
 	return newPop, nil

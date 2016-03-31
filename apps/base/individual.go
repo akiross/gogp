@@ -81,7 +81,7 @@ func (ind *Individual) Evaluate() ga.Fitness {
 
 	var rmse float64
 
-	if true { // Linear scaling
+	if false { // Linear scaling
 		// Images to vector
 		dataInd := imgut.ToSlice(ind.ImgTemp)
 		dataTarg := imgut.ToSlice(ind.set.ImgTarget)

@@ -86,34 +86,35 @@ func Evolve(calcMaxDepth func(*imgut.Image) int, fun, ter []gp.Primitive, drawfu
 	startTime := time.Now()
 
 	// Setup options
-	seed := flag.Int64("seed", startTime.UTC().UnixNano(), "Seed for RNG")
-	numGen := flag.Int("g", 100, "Number of generations")
-	popSize := flag.Int("p", 1000, "Size of population")
-	saveInterval := flag.Int("n", 25, "Generations interval between two snapshot saves")
-	tournSize := flag.Int("T", 3, "Tournament size")
-	pCross := flag.Float64("C", 0.8, "Crossover probability")
-	pMut := flag.Float64("M", 0.1, "Bit mutation probability")
-	quiet := flag.Bool("q", false, "Quiet mode")
-	//advStats := flag.Bool("stats", false, "Enable advanced statistics")
-	//nps := flag.Bool("nps", false, "Disable population snapshot (no-pop-snap)")
-	targetPath := flag.String("t", "", "Target image (PNG) path")
+	fs := flag.NewFlagSet(os.Args[0], flag.ExitOnError)
+	seed := fs.Int64("seed", startTime.UTC().UnixNano(), "Seed for RNG")
+	numGen := fs.Int("g", 100, "Number of generations")
+	popSize := fs.Int("p", 1000, "Size of population")
+	saveInterval := fs.Int("n", 25, "Generations interval between two snapshot saves")
+	tournSize := fs.Int("T", 3, "Tournament size")
+	pCross := fs.Float64("C", 0.8, "Crossover probability")
+	pMut := fs.Float64("M", 0.1, "Bit mutation probability")
+	quiet := fs.Bool("q", false, "Quiet mode")
+	//advStats := fs.Bool("stats", false, "Enable advanced statistics")
+	//nps := fs.Bool("nps", false, "Disable population snapshot (no-pop-snap)")
+	targetPath := fs.String("t", "", "Target image (PNG) path")
 	var basedir, basename string
-	cpuProfile := flag.String("cpuprofile", "", "Write CPU profile to file")
+	cpuProfile := fs.String("cpuprofile", "", "Write CPU profile to file")
 
-	flag.Usage = func() {
+	fs.Usage = func() {
 		fmt.Fprintf(os.Stderr, "Usage of %s:\n", os.Args[0])
-		flag.PrintDefaults()
+		fs.PrintDefaults()
 		fmt.Fprintf(os.Stderr, "  basedir (string) to be used for saving logs and files\n")
 		fmt.Fprintf(os.Stderr, "  basename (string) to be used for saving logs and files\n")
 	}
 
-	flag.Parse()
+	fs.Parse(os.Args[1:])
 
 	// Check if the argument
-	args := flag.Args()
+	args := fs.Args()
 
 	if len(args) != 2 {
-		flag.Usage()
+		fs.Usage()
 		fmt.Fprintf(os.Stderr, "\nBasename/basedir parameter not specified\n")
 		return
 	} else {

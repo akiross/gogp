@@ -18,19 +18,20 @@ func draw(ind *base.Individual, img *imgut.Image) {
 }
 
 func main() {
-	fPalSolid := flag.Bool("pf", false, "Enable Palette Full colors")
-	fPalShade := flag.Bool("ps", false, "Enable Palette Shade colors")
-	fEphFull := flag.Bool("ef", false, "Enable Full-color Ephemerals")
-	fEphShade := flag.Bool("es", false, "Enable randomly-oriented Shaded-color Ephemerals")
-	fEphDiagFill := flag.Bool("edf", false, "Enable Diagonal-oriented Full-color Ephemerals")
-	fEphDiagLine := flag.Bool("edl", false, "Enable Diagonal-oriented Line-color Ephemerals")
-	maxDepth := flag.Int("maxdepth", 13, "Set the maximum depth (default 13)")
-	flag.Parse()
+	fs := flag.NewFlagSet(os.Args[0], flag.ExitOnError)
+	fPalSolid := fs.Bool("pf", false, "Enable Palette Full colors")
+	fPalShade := fs.Bool("ps", false, "Enable Palette Shade colors")
+	fEphFull := fs.Bool("ef", false, "Enable Full-color Ephemerals")
+	fEphShade := fs.Bool("es", false, "Enable randomly-oriented Shaded-color Ephemerals")
+	fEphDiagFill := fs.Bool("edf", false, "Enable Diagonal-oriented Full-color Ephemerals")
+	fEphDiagLine := fs.Bool("edl", false, "Enable Diagonal-oriented Line-color Ephemerals")
+	maxDepth := fs.Int("maxdepth", 13, "Set the maximum depth (default 13)")
+	fs.Parse(os.Args[1:])
 
 	// After parsing, change the name of the program to reflect used flags
-	newName := strings.Join(os.Args[:len(os.Args)-flag.NArg()], " ")
+	newName := strings.Join(os.Args[:len(os.Args)-fs.NArg()], " ")
 	// Prepare arguments for next stage
-	os.Args = append([]string{newName}, flag.Args()...)
+	os.Args = append([]string{newName}, fs.Args()...)
 
 	// Enable terminals according to flags
 	if *fEphFull {

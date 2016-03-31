@@ -21,6 +21,13 @@ unary and binary functionals, you need two types.
 
 3. Implement your operators.
 
+--
+
+The gp.Primitive will be used directly into nodes of the solution trees.
+
+Compilation of the tree will recursively use Primitive.Run() (eventually passing the
+required child primitives as arguments) and returning a new Primitive.
+How that primitive is used to compute an output from some inputs, is defined by you.
 */
 package gp
 
