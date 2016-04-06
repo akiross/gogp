@@ -108,6 +108,7 @@ func makeMultiMutation(s *base.Settings, enbSin, enbNod, enbSub, enbAre, enbLoc 
 			}
 			// In the case we don't execute anything, go to the next method
 		}
+		// If this happens, all the mutations were disabled
 		return false
 	}
 }
