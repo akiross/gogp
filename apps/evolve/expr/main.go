@@ -19,12 +19,7 @@ func draw(ind *base.Individual, img *imgut.Image) {
 
 func main() {
 	fs := flag.NewFlagSet(os.Args[0], flag.ExitOnError)
-	//		fPalSolid := fs.Bool("pf", false, "Enable Palette Full colors")
-	//		fPalShade := fs.Bool("ps", false, "Enable Palette Shade colors")
-	//		fEphFull := fs.Bool("ef", false, "Enable Full-color Ephemerals")
-	//		fEphShade := fs.Bool("es", false, "Enable randomly-oriented Shaded-color Ephemerals")
-	//		fEphDiagFill := fs.Bool("edf", false, "Enable Diagonal-oriented Full-color Ephemerals")
-	//		fEphDiagLine := fs.Bool("edl", false, "Enable Diagonal-oriented Line-color Ephemerals")
+	//fTrig := fs.Bool("tf", false, "Enable sin, cos, tanh")
 	maxDepth := fs.Int("maxdepth", 13, "Set the maximum depth (default 13)")
 	fs.Parse(os.Args[1:])
 

@@ -1,33 +1,40 @@
 package node
 
 import (
+	"github.com/akiross/gogp/gp"
 	"testing"
 )
-
-/// Some testing primitives
 
 type Terminal1 func(x int) int    // For expressions in 1 variable
 type Terminal2 func(x, y int) int // For expressions in 2 variables
 
-type Functional1 func(args ...Primitive) Primitive // Unary operations
-type Functional2 func(args ...Primitive) Primitive // Binary operations
+type Functional1 func(args ...gp.Primitive) gp.Primitive // Unary operations
+type Functional2 func(args ...gp.Primitive) gp.Primitive // Binary operations
 
 // The following are to satisfy the interface
-func (self Terminal1) IsFunctional() bool           { return false }
-func (self Terminal1) Arity() int                   { return -1 }
-func (self Terminal1) Run(p ...Primitive) Primitive { return self }
+func (self Terminal1) IsFunctional() bool                 { return false }
+func (self Terminal1) Arity() int                         { return -1 }
+func (self Terminal1) Run(p ...gp.Primitive) gp.Primitive { return self }
+func (self Terminal1) IsEphemeral() bool                  { return false }
+func (self Terminal1) Name() string                       { return gp.FuncName(self) }
 
-func (self Terminal2) IsFunctional() bool           { return false }
-func (self Terminal2) Arity() int                   { return -1 }
-func (self Terminal2) Run(p ...Primitive) Primitive { return self }
+func (self Terminal2) IsFunctional() bool                 { return false }
+func (self Terminal2) Arity() int                         { return -1 }
+func (self Terminal2) Run(p ...gp.Primitive) gp.Primitive { return self }
+func (self Terminal2) IsEphemeral() bool                  { return false }
+func (self Terminal2) Name() string                       { return gp.FuncName(self) }
 
-func (self Functional1) IsFunctional() bool           { return true }
-func (self Functional1) Arity() int                   { return 1 }
-func (self Functional1) Run(p ...Primitive) Primitive { return self(p[0]) }
+func (self Functional1) IsFunctional() bool                 { return true }
+func (self Functional1) Arity() int                         { return 1 }
+func (self Functional1) Run(p ...gp.Primitive) gp.Primitive { return self(p[0]) }
+func (self Functional1) IsEphemeral() bool                  { return false }
+func (self Functional1) Name() string                       { return gp.FuncName(self) }
 
-func (self Functional2) IsFunctional() bool           { return true }
-func (self Functional2) Arity() int                   { return 2 }
-func (self Functional2) Run(p ...Primitive) Primitive { return self(p[0], p[1]) }
+func (self Functional2) IsFunctional() bool                 { return true }
+func (self Functional2) Arity() int                         { return 2 }
+func (self Functional2) Run(p ...gp.Primitive) gp.Primitive { return self(p[0], p[1]) }
+func (self Functional2) IsEphemeral() bool                  { return false }
+func (self Functional2) Name() string                       { return gp.FuncName(self) }
 
 func Identity1(x int) int {
 	return x
@@ -45,19 +52,19 @@ func Constant2(c int) Terminal2 {
 	}
 }
 
-func Sum(args ...Primitive) Primitive {
+func Sum(args ...gp.Primitive) gp.Primitive {
 	return Terminal1(func(x int) int {
 		return args[0].(Terminal1)(x) + args[1].(Terminal1)(x)
 	})
 }
 
-func Sub(args ...Primitive) Primitive {
+func Sub(args ...gp.Primitive) gp.Primitive {
 	return Terminal1(func(x int) int {
 		return args[0].(Terminal1)(x) - args[1].(Terminal1)(x)
 	})
 }
 
-func Abs(args ...Primitive) Primitive {
+func Abs(args ...gp.Primitive) gp.Primitive {
 	return Terminal1(func(x int) int {
 		v := args[0].(Terminal1)(x)
 		if v < 0 {
@@ -68,8 +75,8 @@ func Abs(args ...Primitive) Primitive {
 	})
 }
 
-var functionals []Primitive = []Primitive{Functional1(Sum), Functional1(Sub), Functional1(Abs)}
-var terminals []Primitive = []Primitive{Terminal1(Constant1(0)), Terminal1(Constant1(1)), Terminal1(Constant1(-1))}
+var functionals []gp.Primitive = []gp.Primitive{Functional1(Sum), Functional1(Sub), Functional1(Abs)}
+var terminals []gp.Primitive = []gp.Primitive{Terminal1(Constant1(0)), Terminal1(Constant1(1)), Terminal1(Constant1(-1))}
 
 func TestCrossover(t *testing.T) {
 	// Testing crossover, ensuring limits are respected
@@ -93,29 +100,29 @@ func TestCrossover(t *testing.T) {
 
 		// Repeat M times each crossover
 		for j := 0; j < M; j++ {
-			d1, d2 := t1.Depth(), t2.Depth()
+			d1, d2 := Depth(t1), Depth(t2)
 			xo0(t1, t2)
-			if t1.Depth() > maxDepth || t2.Depth() > maxDepth {
-				t.Errorf("xo0 got d1: %v d2: %v after crossover d1': %v d2': %v", d1, d2, t1.Depth(), t2.Depth())
+			if Depth(t1) > maxDepth || Depth(t2) > maxDepth {
+				t.Errorf("xo0 got d1: %v d2: %v after crossover d1': %v d2': %v", d1, d2, Depth(t1), Depth(t2))
 			}
 
-			d3, d4 := t3.Depth(), t4.Depth()
+			d3, d4 := Depth(t3), Depth(t4)
 			xo1(t3, t4)
-			if t3.Depth() > maxDepth+1 || t4.Depth() > maxDepth+1 {
-				t.Errorf("xo1 got d3: %v d4: %v after crossover d3': %v d4': %v", d3, d4, t3.Depth(), t4.Depth())
+			if Depth(t3) > maxDepth+1 || Depth(t4) > maxDepth+1 {
+				t.Errorf("xo1 got d3: %v d4: %v after crossover d3': %v d4': %v", d3, d4, Depth(t3), Depth(t4))
 			}
 
-			d5, d6 := t5.Depth(), t6.Depth()
+			d5, d6 := Depth(t5), Depth(t6)
 			xo2(t5, t6)
-			if t5.Depth() > maxDepth+2 || t6.Depth() > maxDepth+2 {
-				t.Errorf("xo3 got d5: %v d6: %v after crossover d5': %v d6': %v", d5, d6, t5.Depth(), t6.Depth())
+			if Depth(t5) > maxDepth+2 || Depth(t6) > maxDepth+2 {
+				t.Errorf("xo3 got d5: %v d6: %v after crossover d5': %v d6': %v", d5, d6, Depth(t5), Depth(t6))
 			}
 
 		}
 	}
 }
 
-func mt(p Primitive, children ...*Node) *Node {
+func mt(p gp.Primitive, children ...*Node) *Node {
 	return &Node{p, children}
 }
 

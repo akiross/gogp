@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/akiross/gogp/apps/base"
 	"github.com/akiross/gogp/ga"
+	"github.com/akiross/gogp/node"
 	"github.com/akiross/gogp/util/stats/counter"
 	"github.com/akiross/gogp/util/stats/max"
 	"github.com/akiross/gogp/util/stats/min"
@@ -38,7 +39,7 @@ func Create(basedir, basename string) *Stats {
 func (stats *Stats) PopulationDepths(pop *base.Population) []int {
 	depths := make([]int, len(pop.Pop))
 	for i := range pop.Pop {
-		depths[i] = pop.Pop[i].Node.Depth()
+		depths[i] = node.Depth(pop.Pop[i].Node)
 	}
 	return depths
 }
@@ -48,10 +49,10 @@ func (stats *Stats) Observe(pop *base.Population) {
 	stats.obsCount += 1
 	for i := range pop.Pop {
 		// Accumulate depth
-		depth := pop.Pop[i].Node.Depth()
+		depth := node.Depth(pop.Pop[i].Node)
 		stats.depth.Accumulate(float64(depth))
 		// Accumulate number of nodes
-		size := pop.Pop[i].Node.Size()
+		size := node.Size(pop.Pop[i].Node)
 		stats.size.Accumulate(float64(size))
 		// Accumulate fitness
 		fit := float64(pop.Pop[i].Fitness())

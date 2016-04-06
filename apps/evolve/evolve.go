@@ -18,45 +18,79 @@ import (
 	"time"
 )
 
-func makeMultiMutation(s *base.Settings) func(float64, *base.Individual) bool {
+func makeMultiMutation(s *base.Settings, enbSin, enbNod, enbSub, enbAre, enbLoc bool) func(float64, *base.Individual) bool {
+	genFun := func(maxDep int) *node.Node {
+		return node.MakeTreeHalfAndHalf(maxDep, s.Functionals, s.Terminals)
+	}
+
 	singleMut := node.MakeTreeSingleMutation(s.Functionals, s.Terminals) // func(*Node)
 	nodeMut := node.MakeTreeNodeMutation(s.Functionals, s.Terminals)     // funcs, terms []gp.Primitive)// func(*Node) int {
-	subtrMut := node.MakeSubtreeMutation(s.MaxDepth, func(maxDep int) *node.Node {
-		return node.MakeTreeHalfAndHalf(maxDep, s.Functionals, s.Terminals)
-	})
+	subtrMut := node.MakeSubtreeMutation(s.MaxDepth, genFun)
+	areaMut := node.MakeSubtreeMutationGuided(s.MaxDepth, genFun, node.ArityDepthProbComputer)
 
 	return func(pMut float64, ind *base.Individual) bool {
-		switch rand.Intn(4) {
-		case 0:
-			if rand.Float64() < pMut {
-				singleMut(ind.Node)
-				return true
-			}
-		case 1:
-			// pMut is applied to each node
-			return nodeMut(pMut, ind.Node) != 0
-		case 2:
-			if rand.Float64() < pMut {
-				subtrMut(ind.Node)
-				return true
-			}
-		default:
-			neighbSize := 5
-			if rand.Float64() < pMut {
-				for i := 0; i < neighbSize; i++ {
-					mutated := ind.Copy().(*base.Individual) // Copy individual
-					singleMut(mutated.Node)                  // Apply mutation
-					// BUG(akiros) TODO FIXME probably the problem min/max is something to be placed in Settings, and not in population
-					if mutated.Fitness() <= ind.Fitness() {
-						// If improved, save the individual
-						ind.Node = mutated.Node
-						// Invalidate!
-						ind.Invalidate()
+		// Generate a permutation of 5 numbers
+		perm := rand.Perm(5)
+		for _, v := range perm {
+			// Pick the appropriate algorithm
+			switch v {
+			case 0:
+				if enbSin {
+					//fmt.Println("Single node mutation")
+					if rand.Float64() < pMut {
+						singleMut(ind.Node)
+						return true
 					}
+					return false
 				}
-				// Perform singleMut K times
-				return true
+			case 1:
+				if enbNod {
+					//fmt.Println("Node mutation")
+					// pMut is applied to each node
+					return nodeMut(pMut, ind.Node) != 0
+				}
+			case 2:
+				if enbSub {
+					//fmt.Println("Subtree mutation")
+					if rand.Float64() < pMut {
+						subtrMut(ind.Node)
+						return true
+					}
+					return false
+				}
+			case 3:
+				if enbAre {
+					//fmt.Println("Area mutation")
+					if rand.Float64() < pMut {
+						areaMut(ind.Node)
+						return true
+					}
+					return false
+				}
+			default:
+				if enbLoc {
+					//fmt.Println("Local search mutation")
+					// Local search
+					neighbSize := 5
+					if rand.Float64() < pMut {
+						for i := 0; i < neighbSize; i++ {
+							mutated := ind.Copy().(*base.Individual) // Copy individual
+							singleMut(mutated.Node)                  // Apply mutation
+							// BUG(akiros) TODO FIXME probably the problem min/max is something to be placed in Settings, and not in population
+							if mutated.Fitness() <= ind.Fitness() {
+								// If improved, save the individual
+								ind.Node = mutated.Node
+								// Invalidate!
+								ind.Invalidate()
+							}
+						}
+						// Perform singleMut K times
+						return true
+					}
+					return false
+				}
 			}
+			// In the case we don't execute anything, go to the next method
 		}
 		return false
 	}
@@ -95,6 +129,14 @@ func Evolve(calcMaxDepth func(*imgut.Image) int, fun, ter []gp.Primitive, drawfu
 	pCross := fs.Float64("C", 0.8, "Crossover probability")
 	pMut := fs.Float64("M", 0.1, "Bit mutation probability")
 	quiet := fs.Bool("q", false, "Quiet mode")
+	fElite := fs.Bool("el", false, "Enable elite individual")
+
+	fMutSin := fs.Bool("ms", false, "Enable Single Mutation")
+	fMutNod := fs.Bool("mn", false, "Enable Node Mutation")
+	fMutSub := fs.Bool("mt", false, "Enable Subtree Mutation")
+	fMutAre := fs.Bool("ma", false, "Enable Area Mutation")
+	fMutLoc := fs.Bool("ml", false, "Enable Local Mutation")
+
 	//advStats := fs.Bool("stats", false, "Enable advanced statistics")
 	//nps := fs.Bool("nps", false, "Disable population snapshot (no-pop-snap)")
 	targetPath := fs.String("t", "", "Target image (PNG) path")
@@ -163,7 +205,7 @@ func Evolve(calcMaxDepth func(*imgut.Image) int, fun, ter []gp.Primitive, drawfu
 
 	// Define the operators
 	settings.CrossOver = makeCrossover(&settings)
-	settings.Mutate = makeMultiMutation(&settings)
+	settings.Mutate = makeMultiMutation(&settings, *fMutSin, *fMutNod, *fMutSub, *fMutAre, *fMutLoc)
 
 	// Seed rng
 	if !*quiet {
@@ -253,7 +295,7 @@ func Evolve(calcMaxDepth func(*imgut.Image) int, fun, ter []gp.Primitive, drawfu
 		}
 
 		// When elitism is activated, get best individual
-		if false {
+		if *fElite {
 			elite = pop.BestIndividual()
 		}
 

@@ -25,8 +25,10 @@ unary and binary functionals, you need two types.
 package node
 
 import (
+	"container/list"
 	"fmt"
 	"github.com/akiross/gogp/gp"
+	"math"
 	"math/rand"
 )
 
@@ -231,6 +233,17 @@ func MakeSubtreeSwapMutation(funcs, terms []gp.Primitive) func(*Node) {
 	}
 }
 
+// Given a tree (t*) and a node in it (nid), generates a random tree with the
+// appropriate height and replace it with the node
+func generateHLimitedAndSwap(tNodes []*Node, tDepths, tHeights []int, maxH, nid int, genFunction func(maxH int) *Node) {
+	// The random tree cannot make tree larger
+	hLimit := maxH - tDepths[nid] - tHeights[nid]
+	// Build the replacement
+	replacement := genFunction(hLimit)
+	// Swap the content of the nodes
+	swapNodes(tNodes[nid], replacement)
+}
+
 // Replaces a randomly selected subtree with another randomly created subtree
 // maxH describes the maximum height of the resulting tree
 func MakeSubtreeMutation(maxH int, genFunction func(maxH int) *Node) func(*Node) {
@@ -240,12 +253,141 @@ func MakeSubtreeMutation(maxH int, genFunction func(maxH int) *Node) func(*Node)
 		size := len(tNodes)
 		// Pick a random node
 		nid := rand.Intn(size)
-		// The random tree cannot make tree larger
-		hLimit := maxH - tDepths[nid] - tHeights[nid]
-		// Build the replacement
-		replacement := genFunction(hLimit)
-		// Swap the content of the nodes
-		swapNodes(tNodes[nid], replacement)
+		generateHLimitedAndSwap(tNodes, tDepths, tHeights, maxH, nid, genFunction)
+	}
+}
+
+func partitionLeaves(tNodes []*Node) (leaves, nonleaves []int) {
+	size := len(tNodes)
+	// Prepare a slice for internal nodes and one for terminals
+	leaves = make([]int, 0, size)
+	nonleaves = make([]int, 0, size)
+	for i := range tNodes {
+		if len(tNodes[i].children) == 0 {
+			leaves = append(leaves, i)
+		} else {
+			nonleaves = append(nonleaves, i)
+		}
+	}
+	return
+}
+
+func makeExpProbs(tDepths, leaves []int, exp float64) (probs []float64, index []int) {
+	// Compute probabilities for each leaf using its depth
+	probs = make([]float64, len(leaves))
+	index = make([]int, len(leaves))
+	for i := range probs {
+		probs[i] = math.Pow(exp, float64(-tDepths[leaves[i]]))
+		index[i] = i
+	}
+	return
+}
+
+// same as MakeSubtreeMutation, but probability of picking nodes varies:
+// 50% of the times, internal nodes (functionals) are mutated with uniform probability
+// 50% of the times, leave nodes (terminals) are mutated with probability 1/exp^depth
+func MakeSubtreeMutationLevelExp(maxH int, exp float64, genFunction func(maxH int) *Node) func(*Node) {
+	return func(t *Node) {
+		// Enumerate the nodes
+		tNodes, tDepths, tHeights := t.Enumerate()
+		leaves, nonleaves := partitionLeaves(tNodes)
+		var nid int
+		// Pick one category
+		if rand.Intn(2) == 0 {
+			// Pick randomly one non-leaf and work like subtree mutation
+			nid = nonleaves[rand.Intn(len(nonleaves))]
+		} else {
+			// Pick leaves using non-uniform probability
+			probs, index := makeExpProbs(tDepths, leaves, exp)
+			// Get a random element according to probabilities
+			computeCDFinPlace(probs, index)
+			e := extractCFDinPlace(probs)
+			nid = index[e]
+		}
+		generateHLimitedAndSwap(tNodes, tDepths, tHeights, maxH, nid, genFunction)
+	}
+}
+
+// ProbComputer should return a pure function that associates to each node of the input
+// tree a likelihood of being randomly selected. The likelihoods will be
+// normalized before computing the CDF
+// The function is expected to be pure, i.e. free of side effects
+type ProbComputer func(t *Node) func(*Node) float64
+
+// Subtree mutation, but uses an external tree to determine node mutation probabilities
+func MakeSubtreeMutationGuided(maxH int, genFunction func(maxH int) *Node, pc ProbComputer) func(*Node) {
+	return func(t *Node) {
+		nl := pc(t)                                // Compute nodes likelihood function
+		tNodes, tDepths, tHeights := t.Enumerate() // Enumerate nodes
+		probs := make([]float64, len(tNodes))
+		inds := make([]int, len(tNodes))
+		for i, v := range tNodes {
+			inds[i] = i
+			probs[i] = nl(v)
+		}
+		normalSlice(probs)              // Normalize likelihood
+		computeCDFinPlace(probs, inds)  // Compute CDF slice
+		nid := extractCFDinPlace(probs) // Extract node index
+		// Perform the mutation
+		generateHLimitedAndSwap(tNodes, tDepths, tHeights, maxH, nid, genFunction)
+	}
+}
+
+// Assign to the nodes a probability of being selected which is
+func ArityDepthProbComputer(t *Node) func(*Node) float64 {
+	// Enumerate the tree and get node parents and depths
+	curDep, depths := 0, make(map[Tree]int) // Depth of each node
+
+	parents := make(map[Tree]Tree) // Associate to each node its parent
+	parStack := list.New()         // Stack of nodes being explored
+	parStack.PushBack(t)           // Start with the root as parent of itself
+
+	nLeafs := 0 // How many leafs in the tree
+
+	ent := func(n Tree) {
+		depths[n] = curDep
+		curDep++
+
+		p := parStack.Back().Value.(Tree) // Get current parent
+		parents[n] = p                    // Save parent of current node
+		parStack.PushBack(n)              // Set current node as parent
+
+		// Increase leaves count if necessary
+		if n.ChiCo() == 0 {
+			nLeafs++
+		}
+	}
+	exi := func(n Tree) {
+		curDep--
+
+		parStack.Remove(parStack.Back()) // Pop current node from stack
+	}
+	Traverse(t, ent, exi)
+
+	// Likelihood of internal nodes
+	inl := 1.0 / float64(len(depths)-nLeafs)
+
+	return func(r *Node) float64 {
+		if r.ChiCo() != 0 {
+			return float64(inl)
+		} else {
+			// Leafs have a probability proportional to
+			// their depth and to parent's arity
+			l := 1
+			n := Tree(r)
+			for n != parents[n] {
+				l = l * parents[n].ChiCo()
+				n = parents[n]
+			}
+			return 1.0 / float64(l)
+		}
+	}
+}
+
+// Counts the nodes in the tree and assign to each node the same probability
+func UniformProbComputer(t *Node) func(*Node) float64 {
+	return func(r *Node) float64 {
+		return 1 // Same likelihood for every node
 	}
 }
 

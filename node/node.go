@@ -26,7 +26,6 @@ package node
 
 import (
 	"bytes"
-	"container/list"
 	"encoding/json"
 	"fmt"
 	"github.com/akiross/gogp/gp"
@@ -37,6 +36,14 @@ import (
 type Node struct {
 	value    gp.Primitive
 	children []*Node
+}
+
+func (n *Node) ChiCo() int {
+	return len(n.children)
+}
+
+func (n *Node) Child(i int) Tree {
+	return n.children[i]
 }
 
 func (root *Node) String() string {
@@ -61,7 +68,7 @@ func (root *Node) MarshalJSON() ([]byte, error) {
 		return json.Marshal(map[string]interface{}{
 			"functional": root.value.Name(),
 			"children":   root.children,
-		}) //.children) //[]byte(`{"node":"foo"}`), nil
+		})
 	}
 }
 
@@ -74,93 +81,6 @@ func (root *Node) Copy() *Node {
 	return &Node{root.value, childr}
 }
 
-// Enumerate the path of the nodes, where the path is the
-// number of the node in parent's children up to the root
-// e.g. leftmost node in a binary full tree with depth 4
-// is 0000, rightmost is 1111. Root has empty path
-func (root *Node) Path() map[*Node][]int {
-	// This map stores the path for every node in the tree
-	paths := make(map[*Node][]int)
-
-	// This visit function will save the values in the paths map
-	var bfVisit func(*Node, []int)
-	bfVisit = func(r *Node, curPath []int) {
-		// Store the current path in the node
-		paths[r] = curPath
-		// For each child, build the path
-		for i := range r.children {
-			// Copy the current path
-			cPath := append([]int{}, curPath...)
-			// Append the number of children
-			cPath = append(cPath, i)
-			// Go down
-			bfVisit(r.children[i], cPath)
-		}
-	}
-
-	bfVisit(root, []int{})
-
-	return paths
-}
-
-// Get the nodes in breadth-first order
-func (root *Node) BreadthFirstEnum() []*Node {
-	// Queue of nodes to visit
-	queue := list.New()
-	queue.PushBack(root)
-	// List of visited nodes
-	visited := []*Node{root}
-
-	for queue.Front() != nil {
-		n := queue.Front()
-		visited = append(visited, n.Value.(*Node))
-		for _, c := range n.Value.(*Node).children {
-			queue.PushBack(c)
-		}
-		queue.Remove(n)
-	}
-
-	return visited
-}
-
-// Colorize a tree using a stating hue value, with varying deviation
-func (root *Node) Colorize(hue, hDev float32) map[*Node][]float32 {
-	// Queue of nodes to visit
-	queue := list.New()
-	queue.PushBack(root)
-	// Queue for depths
-	depths := list.New()
-	depths.PushBack(0)
-	// List of visited nodes
-	visited := []*Node{root}
-	// Colors of the visited nodes
-	colors := make(map[*Node][]float32)
-
-	// Compute the variation of saturation for each node depth
-	treeDepth := root.Depth()
-	var satVar float32 = 0.9 / float32(treeDepth)
-
-	for queue.Front() != nil {
-		ne := queue.Front()   // Node element
-		n := ne.Value.(*Node) // Node
-		de := depths.Front()  // Depth element
-		d := de.Value.(int)   // node depth
-		visited = append(visited, n)
-		for _, c := range n.children {
-			queue.PushBack(c)
-			depths.PushBack(d + 1)
-		}
-
-		// Set the HSV color
-		colors[n] = []float32{hue, 1.0 - float32(d)*satVar, 0.8}
-
-		queue.Remove(ne)
-		depths.Remove(de)
-	}
-
-	return colors
-}
-
 // Prints the tree using a nice indentation
 func (root *Node) PrettyPrint() string {
 	var ind func(r *Node, d int, tabStr string) string
@@ -169,7 +89,7 @@ func (root *Node) PrettyPrint() string {
 		for i := 0; i < d; i++ {
 			str += tabStr
 		}
-		str += fmt.Sprintf("%v\n", gp.FuncName(r.value))
+		str += fmt.Sprintf("%v\n", r.value.Name()) //gp.FuncName(r.value))
 		for i := 0; i < len(r.children); i++ {
 			str += ind(r.children[i], d+1, tabStr)
 		}
@@ -243,45 +163,32 @@ func (root *Node) GraphvizDot(name string, hsvColors map[*Node][]float32) string
 	return "" //src
 }
 
-// Depth is the max number of edges between root and a leaf
-func (root *Node) Depth() int {
-	if len(root.children) == 0 {
-		return 0
-	}
-	h := root.children[0].Depth()
-	for i := 1; i < len(root.children); i++ {
-		h2 := root.children[i].Depth()
-		if h2 > h {
-			h = h2
-		}
-	}
-	return 1 + h
-}
-
-// The number of nodes in the tree
-func (root *Node) Size() int {
-	if len(root.children) == 0 {
-		return 1
-	}
-	c := 1
-	for i := 1; i < len(root.children); i++ {
-		c += root.children[i].Size()
-	}
-	return c
-}
-
 // Visit the tree and transform it to a slice of nodes, and a slice for their depths and heights
 // BUG(akiross) this can be (partially) avoided by usind directly slices to store the tree (using arity)
 func (root *Node) Enumerate() ([]*Node, []int, []int) {
+	t, dt, ht := Enumerate(root)
+	tree := make([]*Node, len(t))
+	for i := range t {
+		tree[i] = t[i].(*Node)
+	}
+	return tree, dt, ht
+}
+
+/*
+// Same as Enumerate, but last returned array contains the indices of the parents
+// for every node. Root node has -1 as parent index
+func (root *Node) EnumerateWithParents() ([]*Node, []int, []int, []int) {
 	tree := make([]*Node, 1)
 	dtree := make([]int, 1) // Depth of a node (node-to-root)
 	htree := make([]int, 1) // Node heights (node-to-leaf)
+	npar := make([]int, 1)  // Indices of node parents
 	tree[0] = root
 	dtree[0] = 0
+	npar[0] = -1   // Root has no parent
 	var chhe []int // Storage for children heights
 	// BUG(akiross) I think this could be made faster by joining the appends in a single loop
 	for i := 0; i < len(root.children); i++ {
-		chtr, chde, chhe2 := root.children[i].Enumerate()
+		chtr, chde, chhe2, chpa := root.children[i].EnumerateWithParents()
 		// Add 1 to the depth of the child
 		for j := range chde {
 			chde[j]++
@@ -308,3 +215,4 @@ func (root *Node) Enumerate() ([]*Node, []int, []int) {
 
 	return tree, dtree, htree
 }
+*/
