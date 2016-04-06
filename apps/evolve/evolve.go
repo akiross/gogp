@@ -9,6 +9,7 @@ import (
 	"github.com/akiross/gogp/gp"
 	"github.com/akiross/gogp/image/draw2d/imgut"
 	"github.com/akiross/gogp/node"
+	"github.com/akiross/gogp/util/stats/counter"
 	"github.com/akiross/gogp/util/stats/sequence"
 	"math"
 	"math/rand"
@@ -36,12 +37,16 @@ func makeMultiMutation(s *base.Settings, enbSin, enbNod, enbSub, enbAre, enbLoc 
 			switch v {
 			case 0:
 				if enbSin {
-					//fmt.Println("Single node mutation")
-					if rand.Float64() < pMut {
+					// Statistics on output values
+					event := rand.Float64() < pMut
+					ind.CountEvent("mut-single-event", event)
+					if event {
+						fit := ind.Evaluate()
 						singleMut(ind.Node)
-						return true
+						newFit := ind.Evaluate()
+						ind.CountEvent("mut-single-improv", s.BetterThan(newFit, fit))
 					}
-					return false
+					return event
 				}
 			case 1:
 				if enbNod {
@@ -52,32 +57,42 @@ func makeMultiMutation(s *base.Settings, enbSin, enbNod, enbSub, enbAre, enbLoc 
 			case 2:
 				if enbSub {
 					//fmt.Println("Subtree mutation")
-					if rand.Float64() < pMut {
+					event := rand.Float64() < pMut
+					ind.CountEvent("mut-subtree-event", event)
+					if event {
+						fit := ind.Evaluate()
 						subtrMut(ind.Node)
-						return true
+						newFit := ind.Evaluate()
+						ind.CountEvent("mut-subtree-improv", s.BetterThan(newFit, fit))
 					}
-					return false
+					return event
 				}
 			case 3:
 				if enbAre {
 					//fmt.Println("Area mutation")
-					if rand.Float64() < pMut {
+					event := rand.Float64() < pMut
+					ind.CountEvent("mut-area-event", event)
+					if event {
+						fit := ind.Evaluate()
 						areaMut(ind.Node)
-						return true
+						newFit := ind.Evaluate()
+						ind.CountEvent("mut-area-improv", s.BetterThan(newFit, fit))
 					}
-					return false
+					return event
 				}
 			default:
 				if enbLoc {
 					//fmt.Println("Local search mutation")
 					// Local search
 					neighbSize := 5
-					if rand.Float64() < pMut {
+					event := rand.Float64() < pMut
+					ind.CountEvent("mut-local-event", event)
+					if event {
+						fit := ind.Evaluate()
 						for i := 0; i < neighbSize; i++ {
 							mutated := ind.Copy().(*base.Individual) // Copy individual
 							singleMut(mutated.Node)                  // Apply mutation
-							// BUG(akiros) TODO FIXME probably the problem min/max is something to be placed in Settings, and not in population
-							if mutated.Fitness() <= ind.Fitness() {
+							if s.BetterThan(mutated.Fitness(), ind.Fitness()) {
 								// If improved, save the individual
 								ind.Node = mutated.Node
 								// Invalidate!
@@ -85,9 +100,10 @@ func makeMultiMutation(s *base.Settings, enbSin, enbNod, enbSub, enbAre, enbLoc 
 							}
 						}
 						// Perform singleMut K times
-						return true
+						newFit := ind.Evaluate()
+						ind.CountEvent("mut-local-improv", s.BetterThan(newFit, fit))
 					}
-					return false
+					return event
 				}
 			}
 			// In the case we don't execute anything, go to the next method
@@ -168,6 +184,7 @@ func Evolve(calcMaxDepth func(*imgut.Image) int, fun, ter []gp.Primitive, drawfu
 
 	// Build statistic map
 	settings.Statistics = make(map[string]*sequence.SequenceStats)
+	settings.Counters = make(map[string]*counter.Counter)
 
 	if *cpuProfile != "" {
 		f, err := os.Create(*cpuProfile)
@@ -271,10 +288,13 @@ func Evolve(calcMaxDepth func(*imgut.Image) int, fun, ter []gp.Primitive, drawfu
 			imgTempPop.WritePNG(snapPopName)
 
 			// Print custom statistics
-			for key := range settings.Statistics {
-				sst := settings.Statistics[key]
+			for key, sst := range settings.Statistics {
 				fmt.Println("Stats", key, sst.Variance.Count(), sst.Min.Get(), sst.Max.Get(), sst.PartialMean(), sst.PartialVarBessel())
 				sst.Clear()
+			}
+			for key, cst := range settings.Counters {
+				fmt.Println("Count", key, cst.AbsoluteFrequency(), cst.RelativeFrequency())
+				cst.Clear()
 			}
 		}
 

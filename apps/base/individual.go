@@ -6,6 +6,7 @@ import (
 	"github.com/akiross/gogp/gp"
 	"github.com/akiross/gogp/image/draw2d/imgut"
 	"github.com/akiross/gogp/node"
+	"github.com/akiross/gogp/util/stats/counter"
 	"github.com/akiross/gogp/util/stats/sequence"
 	"github.com/gonum/floats"
 	"math"
@@ -31,7 +32,11 @@ type Settings struct {
 	Mutate    func(float64, *Individual) bool
 
 	// These hold general purpose statistics for debugging purposes
-	Statistics map[string]*sequence.SequenceStats // Custom stats
+	Statistics map[string]*sequence.SequenceStats // Float values
+	Counters   map[string]*counter.Counter        // Count events
+
+	// Minimization problem
+	ga.MinProblem
 }
 
 type Individual struct {
@@ -50,12 +55,19 @@ func (ind *Individual) MarshalJSON() ([]byte, error) {
 	return ind.Node.MarshalJSON()
 }
 
+// This method should always return the current futness
+// Possibly caching evaluated results
 func (ind *Individual) Fitness() ga.Fitness {
 	if !ind.fitIsValid {
-		return ind.Evaluate()
-	} else {
-		return ind.fitness
+		ind.fitness = ind.Evaluate()
+		ind.fitIsValid = true
 	}
+	return ind.fitness
+}
+
+// Returns true if ind is better than i
+func (ind *Individual) BetterThan(i *Individual) bool {
+	return ind.set.BetterThan(ind.Fitness(), i.Fitness())
 }
 
 func (ind *Individual) Copy() ga.Individual {
@@ -74,7 +86,8 @@ func (ind *Individual) Draw(img *imgut.Image) {
 	ind.set.Draw(ind, img)
 }
 
-// This method sould always evaluate, eventually saving to cache
+// This method evaluates the current genotype and returns its fitness
+// without caching the results (i.e. fitnessIsValid is NOT read or written)
 func (ind *Individual) Evaluate() ga.Fitness {
 	// Draw the individual
 	ind.set.Draw(ind, ind.ImgTemp)
@@ -122,7 +135,6 @@ func (ind *Individual) Evaluate() ga.Fitness {
 	} else { // Normal RMSE image
 		// Compute RMSE
 		rmse = imgut.PixelRMSE(ind.ImgTemp, ind.set.ImgTarget)
-		ind.fitness = ga.Fitness(rmse)
 	}
 
 	// When true, it will multiply by edge-detection RMSE
@@ -149,10 +161,10 @@ func (ind *Individual) Evaluate() ga.Fitness {
 		}
 		ind.set.Statistics["sub-fit-edged"].Observe(edRmse)
 		// Weighted fitness
+		rmse *= edRmse
 		ind.fitness = ga.Fitness(rmse * edRmse)
 	}
-	ind.fitIsValid = true
-	return ind.fitness
+	return ga.Fitness(rmse)
 }
 
 func (ind *Individual) FitnessValid() bool {
@@ -172,4 +184,12 @@ func (ind *Individual) Mutate(pMut float64) {
 	if ind.set.Mutate(pMut, ind) {
 		ind.Invalidate()
 	}
+}
+
+func (ind *Individual) CountEvent(name string, e bool) {
+	// Statistics on output values
+	if _, ok := ind.set.Counters[name]; !ok {
+		ind.set.Counters[name] = new(counter.Counter)
+	}
+	ind.set.Counters[name].Count(e)
 }

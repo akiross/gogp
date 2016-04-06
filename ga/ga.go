@@ -26,10 +26,8 @@ type Population interface {
 	Size() int                                       // Get the number of individuals
 	Select(n int, gen float32) ([]Individual, error) // Select N individuals at given percentage of evolution process
 	BestIndividual() Individual                      // Return the best individual in current population
-	FitnessComparator
 }
 
-// Compare two fitnesses
 type FitnessComparator interface {
 	BetterThan(a, b Fitness) bool
 	IndividualCompare(a, b Individual) bool

@@ -5,6 +5,11 @@ type Counter struct {
 	trueCount, totCount int
 }
 
+func (c *Counter) Clear() {
+	c.trueCount = 0
+	c.totCount = 0
+}
+
 func (c *Counter) Count(v bool) {
 	if v {
 		c.trueCount++
@@ -26,6 +31,13 @@ type Expected struct {
 	trueNeg  int // What we don't want
 	falsePos int // What we thought we wanted, but we don't
 	falseNeg int // What we thought we don't want, but we do
+}
+
+func (c *Expected) Clear() {
+	c.truePos = 0
+	c.trueNeg = 0
+	c.falsePos = 0
+	c.falseNeg = 0
 }
 
 func (c *Expected) Count(actual, expected bool) {

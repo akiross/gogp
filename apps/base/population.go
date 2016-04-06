@@ -18,7 +18,7 @@ type Population struct {
 	Pop       []*Individual
 	Set       *Settings
 	TournSize int
-	ga.MinProblem
+	//ga.MinProblem
 }
 
 func (pop *Population) BestIndividual() ga.Individual {
@@ -40,7 +40,7 @@ func (pop *Population) Evaluate() (fitnessEval int) {
 			ind.Evaluate()
 			fitnessEval++
 		}
-		if pop.best == nil || pop.BetterThan(ind.fitness, pop.best.fitness) {
+		if pop.best == nil || pop.Set.BetterThan(ind.fitness, pop.best.fitness) {
 			pop.best = ind
 		}
 	}
@@ -98,7 +98,7 @@ func (pop *Population) Select(n int, gen float32) ([]ga.Individual, error) {
 			// Sample random individuals for tournament
 			players := SampleRandom(pop.Pop, tournSize)
 			// Perform tournament using fitness
-			best := SampleTournament(players, pop.BetterThan)
+			best := SampleTournament(players, pop.Set.BetterThan)
 			// Save best to population
 			newPop[i] = best.Copy()
 		}
@@ -113,7 +113,7 @@ func (pop *Population) Select(n int, gen float32) ([]ga.Individual, error) {
 				sample[i] = SampleSMDTournament(players)
 			}
 			// Now perform tournament using fitness
-			best := SampleTournament(sample, pop.BetterThan)
+			best := SampleTournament(sample, pop.Set.BetterThan)
 			// Save best to population
 			newPop[i] = best.Copy()
 		}
@@ -125,7 +125,7 @@ func (pop *Population) Select(n int, gen float32) ([]ga.Individual, error) {
 				// Sample some random individuals for tournament
 				players := SampleRandom(pop.Pop, tournSize)
 				// Do fitness tournament and save winner to sample
-				sample[i] = SampleTournament(players, pop.BetterThan)
+				sample[i] = SampleTournament(players, pop.Set.BetterThan)
 			}
 			// Now perform tournament using diversity
 			best := SampleSMDTournament(sample)
@@ -144,7 +144,7 @@ func (pop *Population) Len() int      { return pop.Size() }
 func (pop *Population) Swap(i, j int) { pop.Pop[i], pop.Pop[j] = pop.Pop[j], pop.Pop[i] }
 func (pop *Population) Less(i, j int) bool {
 	fi, fj := pop.Pop[i].fitness, pop.Pop[j].fitness
-	return pop.BetterThan(fi, fj)
+	return pop.Set.BetterThan(fi, fj)
 }
 
 func (pop *Population) Draw(img *imgut.Image, cols, rows int) {
