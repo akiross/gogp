@@ -38,20 +38,20 @@ func makeTree(depth int, funcs, terms []gp.Primitive, strategy func(int, int, in
 	nType, k := strategy(depth, nFuncs, nTerms)
 
 	if nType {
+		// Functional
 		root = &Node{funcs[k], nil}
 		root.children = make([]*Node, funcs[k].Arity())
 		for i := range root.children {
 			root.children[i] = makeTree(depth-1, funcs, terms, strategy)
 		}
-		return
 	} else {
 		if terms[k].IsEphemeral() {
 			root = &Node{terms[k].Run(), nil}
 		} else {
 			root = &Node{terms[k], nil}
 		}
-		return // No need to go down for terminals
 	}
+	return // No need to go down for terminals
 }
 
 // Builds a tree using the grow method
@@ -329,7 +329,7 @@ func MakeSubtreeMutationGuided(maxH int, genFunction func(maxH int) *Node, pc Pr
 		computeCDFinPlace(probs, inds)  // Compute CDF slice
 		nid := extractCFDinPlace(probs) // Extract node index
 		// Perform the mutation
-		generateHLimitedAndSwap(tNodes, tDepths, tHeights, maxH, nid, genFunction)
+		generateHLimitedAndSwap(tNodes, tDepths, tHeights, maxH, inds[nid], genFunction)
 	}
 }
 

@@ -83,19 +83,9 @@ func (root *Node) Copy() *Node {
 
 // Prints the tree using a nice indentation
 func (root *Node) PrettyPrint() string {
-	var ind func(r *Node, d int, tabStr string) string
-	ind = func(r *Node, d int, tabStr string) string {
-		str := ""
-		for i := 0; i < d; i++ {
-			str += tabStr
-		}
-		str += fmt.Sprintf("%v\n", r.value.Name()) //gp.FuncName(r.value))
-		for i := 0; i < len(r.children); i++ {
-			str += ind(r.children[i], d+1, tabStr)
-		}
-		return str
-	}
-	return ind(root, 0, "    ")
+	return PrettyPrint(root, func(n Tree) string {
+		return n.(*Node).value.Name()
+	})
 }
 
 // Produces a graph for the tree, using graphviz dot, saving the graph

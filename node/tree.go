@@ -3,6 +3,7 @@ package node
 // Generic Tree interface and generic functions
 import (
 	"container/list"
+	"strings"
 )
 
 type Tree interface {
@@ -35,6 +36,21 @@ func Size(t Tree) int {
 		c += Size(t.Child(i))
 	}
 	return c
+}
+
+func PrettyPrint(t Tree, node2str func(Tree) string) string {
+	depth := 0
+	tstr := ""
+	ent := func(n Tree) {
+		tabs := strings.Repeat("    ", depth)
+		tstr += tabs + node2str(n) + "\n"
+		depth++
+	}
+	exi := func(n Tree) {
+		depth--
+	}
+	Traverse(t, ent, exi)
+	return tstr
 }
 
 // Enumerate the path of the nodes, where the path is the
