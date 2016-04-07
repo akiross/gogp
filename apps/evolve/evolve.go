@@ -187,6 +187,17 @@ func Evolve(calcMaxDepth func(*imgut.Image) int, fun, ter []gp.Primitive, drawfu
 	settings.Statistics = make(map[string]*sequence.SequenceStats)
 	settings.Counters = make(map[string]*counter.Counter)
 
+	extraStatsKeys := []string{
+		"mut-single-event",
+		"mut-single-improv",
+		"mut-subtree-event",
+		"mut-subtree-improv",
+		"mut-area-event",
+		"mut-area-improv",
+		"mut-local-event",
+		"mut-local-improv",
+	}
+
 	if *cpuProfile != "" {
 		f, err := os.Create(*cpuProfile)
 		if err != nil {
@@ -260,6 +271,12 @@ func Evolve(calcMaxDepth func(*imgut.Image) int, fun, ter []gp.Primitive, drawfu
 	// Save time before starting
 	//genTime := time.Now()
 
+	// Write extra stats header
+	for _, k := range extraStatsKeys {
+		fmt.Printf(" %21s |", k)
+	}
+	fmt.Println()
+
 	// Loop until max number of generation is reached
 	for g := 0; g < *numGen; g++ {
 		// Compute fitness for every individual with no fitness
@@ -293,10 +310,20 @@ func Evolve(calcMaxDepth func(*imgut.Image) int, fun, ter []gp.Primitive, drawfu
 				fmt.Println("Stats", key, sst.Variance.Count(), sst.Min.Get(), sst.Max.Get(), sst.PartialMean(), sst.PartialVarBessel())
 				sst.Clear()
 			}
-			for key, cst := range settings.Counters {
-				fmt.Println("Count", key, cst.AbsoluteFrequency(), cst.RelativeFrequency())
-				cst.Clear()
+			// Print the extra stats
+			for _, key := range extraStatsKeys {
+				if cst, ok := settings.Counters[key]; ok {
+					fmt.Printf(" %10d %010.9g |", cst.AbsoluteFrequency(), cst.RelativeFrequency())
+					cst.Clear()
+				} else {
+					fmt.Printf(" %10v %10v |", "-", "-")
+				}
 			}
+			fmt.Println(" ")
+			//for key, cst := range settings.Counters {
+			//	fmt.Println("Count", key, cst.AbsoluteFrequency(), cst.RelativeFrequency())
+			//	cst.Clear()
+			//}
 		}
 
 		// Setup parallel pipeline
