@@ -89,7 +89,7 @@ func writeIndividual(ind ga.Individual, outFile string) {
 // Another stat: check for correlation between tree depth and tree fitness (deep are good? short are good? what in between?)
 // In general, we would like to keep some time-series, but we cannot keep them for every individual or it will take way too much memory!
 
-func (stats *Stats) SaveSnapshot(pop *base.Population, quiet bool) (snapName, snapPopName string) {
+func (stats *Stats) SaveSnapshot(pop *base.Population, quiet bool, cntKeys, staKeys []string) (snapName, snapPopName string) {
 	timeDelay := time.Since(stats.lastTime)
 	stats.lastTime = time.Now()
 
@@ -106,9 +106,16 @@ func (stats *Stats) SaveSnapshot(pop *base.Population, quiet bool) (snapName, sn
 
 	if !quiet {
 		if stats.snapCount == 0 {
-			fmt.Println("Generation |  Tree depth (mean, stdev) |  Tree size (mean, stdev) |       Fitness (min, mean, max, stdev)       |  XO Improv (abs, rel) | MUT Improv (abs, rel) |    Time delay |")
+			fmt.Print("Generation |  Tree depth (mean, stdev) |  Tree size (mean, stdev) |       Fitness (min, mean, max, stdev)       |  XO Improv (abs, rel) | MUT Improv (abs, rel) |    Time delay |")
+			for _, k := range staKeys {
+				fmt.Printf("%20s", k)
+			}
+			for _, k := range cntKeys {
+				fmt.Printf(" %21s |", k)
+			}
+			fmt.Println()
 		}
-		fmt.Printf("%10v |   %11.4f %11.4f |  %11.4f %11.4f | %10.2f %10.2f %10.2f %10.2f | %10v %10.3f | %10v %10.3f | %13v |\n",
+		fmt.Printf("%10v |   %11.4f %11.4f |  %11.4f %11.4f | %10.2f %10.2f %10.2f %10.2f | %10v %10.3f | %10v %10.3f | %13v |",
 			stats.obsCount-1,
 			stats.depth.PartialMean(), math.Sqrt(stats.depth.PartialVar()),
 			stats.size.PartialMean(), math.Sqrt(stats.size.PartialVar()),
@@ -117,6 +124,24 @@ func (stats *Stats) SaveSnapshot(pop *base.Population, quiet bool) (snapName, sn
 			stats.mutImpr.AbsoluteFrequency(), stats.mutImpr.RelativeFrequency(),
 			fmt.Sprintf("%v", timeDelay),
 		)
+
+		for _, k := range staKeys {
+			if sst, ok := pop.Set.Statistics[k]; ok {
+				fmt.Printf(" %6d %6d %6d %10.6g %10.6g |", sst.Variance.Count(), sst.Min.Get(), sst.Max.Get(), sst.PartialMean(), sst.PartialVarBessel())
+				sst.Clear()
+			} else {
+				fmt.Printf(" %6v %6v %6v %10v %10v |", "-", "-", "-", "-", "-")
+			}
+		}
+		for _, k := range cntKeys {
+			if cst, ok := pop.Set.Counters[k]; ok {
+				fmt.Printf(" %10d %10.6g |", cst.AbsoluteFrequency(), cst.RelativeFrequency())
+				cst.Clear()
+			} else {
+				fmt.Printf(" %10v %10v |", "-", "-")
+			}
+		}
+		fmt.Println()
 	}
 	// Increment snapshot count
 	stats.snapCount++

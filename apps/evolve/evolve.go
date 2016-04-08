@@ -19,7 +19,7 @@ import (
 	"time"
 )
 
-func makeMultiMutation(s *base.Settings, enbSin, enbNod, enbSub, enbAre, enbLoc bool) func(float64, *base.Individual) bool {
+func makeMultiMutation(s *base.Settings, multiMut, enbSin, enbNod, enbSub, enbAre, enbLoc bool) func(float64, *base.Individual) bool {
 	genFun := func(maxDep int) *node.Node {
 		return node.MakeTreeHalfAndHalf(maxDep, s.Functionals, s.Terminals)
 	}
@@ -29,65 +29,76 @@ func makeMultiMutation(s *base.Settings, enbSin, enbNod, enbSub, enbAre, enbLoc 
 	subtrMut := node.MakeSubtreeMutation(s.MaxDepth, genFun)
 	areaMut := node.MakeSubtreeMutationGuided(s.MaxDepth, genFun, node.ArityDepthProbComputer)
 
+	const neighbSize = 5 // Neighborhood size for local search
+
 	return func(pMut float64, ind *base.Individual) bool {
-		// Generate a permutation of 5 numbers
-		perm := rand.Perm(5)
+		perm := rand.Perm(5) // Randomly permutate the algorithms to pick
+		evCount := 0         // Number of events (mutations performed)
 		for _, v := range perm {
-			// Pick the appropriate algorithm
+			event := rand.Float64() < pMut // Perform mutation?
 			switch v {
 			case 0:
 				if enbSin {
-					// Statistics on output values
-					event := rand.Float64() < pMut
 					ind.CountEvent("mut-single-event", event)
 					if event {
+						evCount++
 						fit := ind.Evaluate()
 						singleMut(ind.Node)
 						newFit := ind.Evaluate()
 						ind.CountEvent("mut-single-improv", s.BetterThan(newFit, fit))
 					}
-					return event
+					if !multiMut {
+						return event
+					}
 				}
 			case 1:
 				if enbNod {
-					//fmt.Println("Node mutation")
-					// pMut is applied to each node
-					return nodeMut(pMut, ind.Node) != 0
+					fit := ind.Evaluate()
+					event = nodeMut(pMut, ind.Node) != 0
+					ind.CountEvent("mut-multi-event", event)
+					if event {
+						evCount++
+						newFit := ind.Evaluate()
+						ind.CountEvent("mut-multi-improv", s.BetterThan(newFit, fit))
+					}
+					if !multiMut {
+						return event
+					}
 				}
 			case 2:
 				if enbSub {
-					//fmt.Println("Subtree mutation")
-					event := rand.Float64() < pMut
 					ind.CountEvent("mut-subtree-event", event)
 					if event {
+						evCount++
 						fit := ind.Evaluate()
 						subtrMut(ind.Node)
 						newFit := ind.Evaluate()
 						ind.CountEvent("mut-subtree-improv", s.BetterThan(newFit, fit))
 					}
-					return event
+					if !multiMut {
+						return event
+					}
 				}
 			case 3:
 				if enbAre {
-					//fmt.Println("Area mutation")
-					event := rand.Float64() < pMut
 					ind.CountEvent("mut-area-event", event)
 					if event {
+						evCount++
 						fit := ind.Evaluate()
 						areaMut(ind.Node)
 						newFit := ind.Evaluate()
 						ind.CountEvent("mut-area-improv", s.BetterThan(newFit, fit))
 					}
-					return event
+					if !multiMut {
+						return event
+					}
 				}
 			default:
 				if enbLoc {
-					//fmt.Println("Local search mutation")
 					// Local search
-					neighbSize := 5
-					event := rand.Float64() < pMut
 					ind.CountEvent("mut-local-event", event)
 					if event {
+						evCount++
 						fit := ind.Evaluate()
 						for i := 0; i < neighbSize; i++ {
 							mutated := ind.Copy().(*base.Individual) // Copy individual
@@ -103,13 +114,23 @@ func makeMultiMutation(s *base.Settings, enbSin, enbNod, enbSub, enbAre, enbLoc 
 						newFit := ind.Evaluate()
 						ind.CountEvent("mut-local-improv", s.BetterThan(newFit, fit))
 					}
-					return event
+					if !multiMut {
+						return event
+					}
 				}
 			}
 			// In the case we don't execute anything, go to the next method
 		}
-		// If this happens, all the mutations were disabled
-		return false
+		// If this happens, all the mutations were disabled, or all the mutations
+		// were performed when multi mutation was enabled
+		if multiMut {
+			// TODO Counter.CountInt would be better, but needs a fix when printing
+			ind.CountEvent("mut-multi-count-0", evCount == 0)
+			ind.CountEvent("mut-multi-count-1", evCount == 1)
+			ind.CountEvent("mut-multi-count-2", evCount == 2)
+			ind.CountEvent("mut-multi-count-+", evCount > 2)
+		}
+		return evCount > 0
 	}
 }
 
@@ -138,7 +159,6 @@ func Evolve(calcMaxDepth func(*imgut.Image) int, fun, ter []gp.Primitive, drawfu
 
 	// Setup options
 	fs := flag.NewFlagSet(os.Args[0], flag.ExitOnError)
-	seed := fs.Int64("seed", startTime.UTC().UnixNano(), "Seed for RNG")
 	numGen := fs.Int("g", 100, "Number of generations")
 	popSize := fs.Int("p", 1000, "Size of population")
 	saveInterval := fs.Int("n", 25, "Generations interval between two snapshot saves")
@@ -153,6 +173,8 @@ func Evolve(calcMaxDepth func(*imgut.Image) int, fun, ter []gp.Primitive, drawfu
 	fMutSub := fs.Bool("mt", false, "Enable Subtree Mutation")
 	fMutAre := fs.Bool("ma", false, "Enable Area Mutation")
 	fMutLoc := fs.Bool("ml", false, "Enable Local Mutation")
+
+	fMultiMut := fs.Bool("mM", false, "Enable multiple mutations")
 
 	//advStats := fs.Bool("stats", false, "Enable advanced statistics")
 	//nps := fs.Bool("nps", false, "Disable population snapshot (no-pop-snap)")
@@ -187,15 +209,32 @@ func Evolve(calcMaxDepth func(*imgut.Image) int, fun, ter []gp.Primitive, drawfu
 	settings.Statistics = make(map[string]*sequence.SequenceStats)
 	settings.Counters = make(map[string]*counter.Counter)
 
-	extraStatsKeys := []string{
-		"mut-single-event",
-		"mut-single-improv",
-		"mut-subtree-event",
-		"mut-subtree-improv",
-		"mut-area-event",
-		"mut-area-improv",
-		"mut-local-event",
-		"mut-local-improv",
+	// Names of extra statistics
+	statsKeys := []string{}
+	countersKeys := []string{}
+
+	if *fMutSin {
+		countersKeys = append(countersKeys, "mut-single-event", "mut-single-improv")
+	}
+	if *fMutNod {
+		countersKeys = append(countersKeys, "mut-multi-event", "mut-multi-improv")
+	}
+	if *fMutSub {
+		countersKeys = append(countersKeys, "mut-subtree-event", "mut-subtree-improv")
+	}
+	if *fMutAre {
+		countersKeys = append(countersKeys, "mut-area-event", "mut-area-improv")
+	}
+	if *fMutLoc {
+		countersKeys = append(countersKeys, "mut-local-event", "mut-local-improv")
+	}
+	if *fMultiMut {
+		countersKeys = append(countersKeys,
+			"mut-multi-count-0",
+			"mut-multi-count-1",
+			"mut-multi-count-2",
+			"mut-multi-count-+",
+		)
 	}
 
 	if *cpuProfile != "" {
@@ -234,16 +273,14 @@ func Evolve(calcMaxDepth func(*imgut.Image) int, fun, ter []gp.Primitive, drawfu
 
 	// Define the operators
 	settings.CrossOver = makeCrossover(&settings)
-	settings.Mutate = makeMultiMutation(&settings, *fMutSin, *fMutNod, *fMutSub, *fMutAre, *fMutLoc)
+	settings.Mutate = makeMultiMutation(&settings, *fMultiMut, *fMutSin, *fMutNod, *fMutSub, *fMutAre, *fMutLoc)
 
 	// Seed rng
 	if !*quiet {
-		fmt.Println("Seed used", *seed)
 		fmt.Println("Number of CPUs", runtime.NumCPU())
 		runtime.GOMAXPROCS(runtime.NumCPU())
 		fmt.Println("CPUs limits", runtime.GOMAXPROCS(0))
 	}
-	rand.Seed(*seed)
 
 	// Build population
 	pop := new(base.Population)
@@ -271,12 +308,6 @@ func Evolve(calcMaxDepth func(*imgut.Image) int, fun, ter []gp.Primitive, drawfu
 	// Save time before starting
 	//genTime := time.Now()
 
-	// Write extra stats header
-	for _, k := range extraStatsKeys {
-		fmt.Printf(" %21s |", k)
-	}
-	fmt.Println()
-
 	// Loop until max number of generation is reached
 	for g := 0; g < *numGen; g++ {
 		// Compute fitness for every individual with no fitness
@@ -293,7 +324,7 @@ func Evolve(calcMaxDepth func(*imgut.Image) int, fun, ter []gp.Primitive, drawfu
 
 		// Statistics and samples
 		if g%*saveInterval == 0 {
-			snapName, snapPopName := sta.SaveSnapshot(pop, *quiet)
+			snapName, snapPopName := sta.SaveSnapshot(pop, *quiet, countersKeys, statsKeys)
 			// Save best individual
 			pop.BestIndividual().Fitness()
 			pop.BestIndividual().(*base.Individual).ImgTemp.WritePNG(snapName)
@@ -304,26 +335,6 @@ func Evolve(calcMaxDepth func(*imgut.Image) int, fun, ter []gp.Primitive, drawfu
 			// Save pop images
 			pop.Draw(imgTempPop, pImgCols, pImgRows)
 			imgTempPop.WritePNG(snapPopName)
-
-			// Print custom statistics
-			for key, sst := range settings.Statistics {
-				fmt.Println("Stats", key, sst.Variance.Count(), sst.Min.Get(), sst.Max.Get(), sst.PartialMean(), sst.PartialVarBessel())
-				sst.Clear()
-			}
-			// Print the extra stats
-			for _, key := range extraStatsKeys {
-				if cst, ok := settings.Counters[key]; ok {
-					fmt.Printf(" %10d %010.9g |", cst.AbsoluteFrequency(), cst.RelativeFrequency())
-					cst.Clear()
-				} else {
-					fmt.Printf(" %10v %10v |", "-", "-")
-				}
-			}
-			fmt.Println(" ")
-			//for key, cst := range settings.Counters {
-			//	fmt.Println("Count", key, cst.AbsoluteFrequency(), cst.RelativeFrequency())
-			//	cst.Clear()
-			//}
 		}
 
 		// Setup parallel pipeline
@@ -360,7 +371,7 @@ func Evolve(calcMaxDepth func(*imgut.Image) int, fun, ter []gp.Primitive, drawfu
 	//	fmt.Println("Best individual", pop.BestIndividual())
 	//}
 
-	snapName, snapPopName := sta.SaveSnapshot(pop, *quiet)
+	snapName, snapPopName := sta.SaveSnapshot(pop, *quiet, countersKeys, statsKeys)
 	// Save best individual
 	pop.BestIndividual().Fitness()
 	pop.BestIndividual().(*base.Individual).ImgTemp.WritePNG(snapName)

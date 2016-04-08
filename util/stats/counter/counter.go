@@ -3,11 +3,13 @@ package counter
 // Counter keeps track of the frequency of binary events
 type Counter struct {
 	trueCount, totCount int
+	intCount            map[int]int
 }
 
 func (c *Counter) Clear() {
 	c.trueCount = 0
 	c.totCount = 0
+	c.intCount = make(map[int]int)
 }
 
 func (c *Counter) Count(v bool) {
@@ -15,6 +17,13 @@ func (c *Counter) Count(v bool) {
 		c.trueCount++
 	}
 	c.totCount++
+}
+
+func (c *Counter) CountInt(v int) {
+	if c.intCount == nil {
+		c.intCount = make(map[int]int)
+	}
+	c.intCount[v]++
 }
 
 func (c *Counter) AbsoluteFrequency() int {

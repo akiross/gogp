@@ -11,6 +11,7 @@ import (
 	"math/rand"
 	"os"
 	"strings"
+	"time"
 )
 
 func draw(ind *base.Individual, img *imgut.Image) {
@@ -19,6 +20,7 @@ func draw(ind *base.Individual, img *imgut.Image) {
 
 func main() {
 	fs := flag.NewFlagSet(os.Args[0], flag.ExitOnError)
+	seed := fs.Int64("seed", time.Now().UTC().UnixNano(), "Seed for RNG")
 	fPalSolid := fs.Bool("pf", false, "Enable Palette Full colors")
 	fPalShade := fs.Bool("ps", false, "Enable Palette Shade colors")
 	fEphFull := fs.Bool("ef", false, "Enable Full-color Ephemerals")
@@ -32,6 +34,10 @@ func main() {
 	newName := strings.Join(os.Args[:len(os.Args)-fs.NArg()], " ")
 	// Prepare arguments for next stage
 	os.Args = append([]string{newName}, fs.Args()...)
+
+	// Seed the random number generator
+	fmt.Println("RNG Seed", *seed)
+	rand.Seed(*seed)
 
 	// Enable terminals according to flags
 	if *fEphFull {
