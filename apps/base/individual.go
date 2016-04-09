@@ -32,8 +32,9 @@ type Settings struct {
 	Mutate    func(float64, *Individual) bool
 
 	// These hold general purpose statistics for debugging purposes
-	Statistics map[string]*sequence.SequenceStats // Float values
-	Counters   map[string]*counter.Counter        // Count events
+	Statistics  map[string]*sequence.SequenceStats // Float values
+	Counters    map[string]*counter.BoolCounter    // Count events
+	IntCounters map[string]*counter.IntCounter     // Count ints
 
 	// Minimization problem
 	ga.MinProblem
@@ -189,7 +190,7 @@ func (ind *Individual) Mutate(pMut float64) {
 func (ind *Individual) CountEvent(name string, e bool) {
 	// Statistics on output values
 	if _, ok := ind.set.Counters[name]; !ok {
-		ind.set.Counters[name] = new(counter.Counter)
+		ind.set.Counters[name] = new(counter.BoolCounter)
 	}
 	ind.set.Counters[name].Count(e)
 }

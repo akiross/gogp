@@ -27,7 +27,7 @@ func main() {
 	fEphShade := fs.Bool("es", false, "Enable randomly-oriented Shaded-color Ephemerals")
 	fEphDiagFill := fs.Bool("edf", false, "Enable Diagonal-oriented Full-color Ephemerals")
 	fEphDiagLine := fs.Bool("edl", false, "Enable Diagonal-oriented Line-color Ephemerals")
-	maxDepth := fs.Int("maxdepth", 13, "Set the maximum depth (default 13)")
+	maxDepth := fs.Int("maxdepth", 13, "Set the maximum depth")
 	fs.Parse(os.Args[1:])
 
 	// After parsing, change the name of the program to reflect used flags

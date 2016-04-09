@@ -13,6 +13,7 @@ import (
 	"math"
 	"os"
 	"sort"
+	"strings"
 	"time"
 )
 
@@ -21,10 +22,10 @@ type Stats struct {
 	snapCount            int
 	obsCount             int // Number of observation
 	depth, size, fitness variance.Variance
-	min                  min.Min         // Min fitness
-	max                  max.Max         // Max fitness
-	xoImpr, mutImpr      counter.Counter // Count how often xo and mut improve
-	lastTime             time.Time       // Time of last snapshot
+	min                  min.Min             // Min fitness
+	max                  max.Max             // Max fitness
+	xoImpr, mutImpr      counter.BoolCounter // Count how often xo and mut improve
+	lastTime             time.Time           // Time of last snapshot
 }
 
 func Create(basedir, basename string) *Stats {
@@ -89,7 +90,7 @@ func writeIndividual(ind ga.Individual, outFile string) {
 // Another stat: check for correlation between tree depth and tree fitness (deep are good? short are good? what in between?)
 // In general, we would like to keep some time-series, but we cannot keep them for every individual or it will take way too much memory!
 
-func (stats *Stats) SaveSnapshot(pop *base.Population, quiet bool, cntKeys, staKeys []string) (snapName, snapPopName string) {
+func (stats *Stats) SaveSnapshot(pop *base.Population, quiet bool, cntKeys, staKeys, intCntKeys []string) (snapName, snapPopName string) {
 	timeDelay := time.Since(stats.lastTime)
 	stats.lastTime = time.Now()
 
@@ -104,6 +105,8 @@ func (stats *Stats) SaveSnapshot(pop *base.Population, quiet bool, cntKeys, staK
 
 	writeIndividual(pop.BestIndividual(), bestTree)
 
+	const wideField = 40
+
 	if !quiet {
 		if stats.snapCount == 0 {
 			fmt.Print("Generation |  Tree depth (mean, stdev) |  Tree size (mean, stdev) |       Fitness (min, mean, max, stdev)       |  XO Improv (abs, rel) | MUT Improv (abs, rel) |    Time delay |")
@@ -112,6 +115,9 @@ func (stats *Stats) SaveSnapshot(pop *base.Population, quiet bool, cntKeys, staK
 			}
 			for _, k := range cntKeys {
 				fmt.Printf(" %21s |", k)
+			}
+			for _, k := range intCntKeys {
+				fmt.Printf(" %*s |", wideField, k)
 			}
 			fmt.Println()
 		}
@@ -139,6 +145,19 @@ func (stats *Stats) SaveSnapshot(pop *base.Population, quiet bool, cntKeys, staK
 				cst.Clear()
 			} else {
 				fmt.Printf(" %10v %10v |", "-", "-")
+			}
+		}
+		for _, k := range intCntKeys {
+			if nst, ok := pop.Set.IntCounters[k]; ok {
+				keys := nst.Counted()
+				vals := make([]string, len(keys))
+				for i, n := range keys {
+					vals[i] = fmt.Sprintf("%d:%d", n, nst.AbsoluteFrequency(n))
+				}
+				fmt.Printf(" %*s |", wideField, strings.Join(vals, ","))
+				nst.Clear()
+			} else {
+				fmt.Printf(" %*s |", wideField, "-")
 			}
 		}
 		fmt.Println()

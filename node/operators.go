@@ -32,6 +32,9 @@ import (
 	"math/rand"
 )
 
+// This function is called by the mutation functions for statistic purposes
+type StatRecorder func(nDepth, replDepth int, isLeaf bool)
+
 // strategy is a function that pick a gp.Primitive suitable to be placed in the tree, indicating if it's a functional or not, and giving the index of the picked gp.Primitive
 func makeTree(depth int, funcs, terms []gp.Primitive, strategy func(int, int, int) (bool, int)) (root *Node) {
 	nFuncs, nTerms := len(funcs), len(terms)
@@ -137,10 +140,10 @@ func CompileTree(root *Node) gp.Primitive {
 // Mutate the tree by changing one single node with an equivalent one in arity
 // funcs is the set of functionals (internal nodes)
 // terms is the set of terminals (leaves)
-func MakeTreeSingleMutation(funcs, terms []gp.Primitive) func(*Node) {
+func MakeTreeSingleMutation(funcs, terms []gp.Primitive, statRecord StatRecorder) func(*Node) {
 	return func(t *Node) {
 		// Get a slice with the nodes
-		nodes, _, _ := t.Enumerate()
+		nodes, depths, _ := t.Enumerate()
 		size := len(nodes)
 		// Pick a random node
 		nid := rand.Intn(size)
@@ -165,11 +168,14 @@ func MakeTreeSingleMutation(funcs, terms []gp.Primitive) func(*Node) {
 			// Replace node with a random one
 			nodes[nid].value = sameArityFuncs[rand.Intn(len(sameArityFuncs))]
 		}
+		if statRecord != nil {
+			statRecord(depths[nid], 0, len(nodes[nid].children) == 0)
+		}
 	}
 }
 
 // Go over each node and randomly mutate it with a compatible one
-func MakeTreeNodeMutation(funcs, terms []gp.Primitive) func(float64, *Node) int {
+func MakeTreeNodeMutation(funcs, terms []gp.Primitive, statRecord StatRecorder) func(float64, *Node) int {
 	// Build a map of primitives by arity
 	prims := make(map[int][]gp.Primitive)
 	for i := range funcs {
@@ -214,7 +220,7 @@ func swapNodes(n1, n2 *Node) {
 }
 
 // Randomly select two subrees and swap them
-func MakeSubtreeSwapMutation(funcs, terms []gp.Primitive) func(*Node) {
+func MakeSubtreeSwapMutation(funcs, terms []gp.Primitive, statRecord StatRecorder) func(*Node) {
 	return func(t *Node) {
 		// The tricky part is to pick two subtrees that are distinct
 		// i.e. we do not want that one tree is subtree of the other
@@ -235,25 +241,31 @@ func MakeSubtreeSwapMutation(funcs, terms []gp.Primitive) func(*Node) {
 
 // Given a tree (t*) and a node in it (nid), generates a random tree with the
 // appropriate height and replace it with the node
-func generateHLimitedAndSwap(tNodes []*Node, tDepths, tHeights []int, maxH, nid int, genFunction func(maxH int) *Node) {
+func generateHLimitedAndSwap(tNodes []*Node, tDepths, tHeights []int, maxH, nid int, genFunction func(maxH int) *Node) int {
 	// The random tree cannot make tree larger
 	hLimit := maxH - tDepths[nid] - tHeights[nid]
 	// Build the replacement
 	replacement := genFunction(hLimit)
+	rd := Depth(replacement)
 	// Swap the content of the nodes
 	swapNodes(tNodes[nid], replacement)
+	// Return depth of the created tree
+	return rd
 }
 
 // Replaces a randomly selected subtree with another randomly created subtree
 // maxH describes the maximum height of the resulting tree
-func MakeSubtreeMutation(maxH int, genFunction func(maxH int) *Node) func(*Node) {
+func MakeSubtreeMutation(maxH int, genFunction func(maxH int) *Node, statRecord StatRecorder) func(*Node) {
 	return func(t *Node) {
 		// Get a slice with the nodes
 		tNodes, tDepths, tHeights := t.Enumerate()
 		size := len(tNodes)
 		// Pick a random node
 		nid := rand.Intn(size)
-		generateHLimitedAndSwap(tNodes, tDepths, tHeights, maxH, nid, genFunction)
+		rd := generateHLimitedAndSwap(tNodes, tDepths, tHeights, maxH, nid, genFunction)
+		if statRecord != nil {
+			statRecord(tDepths[nid], rd, len(tNodes[nid].children) == 0)
+		}
 	}
 }
 
@@ -286,7 +298,7 @@ func makeExpProbs(tDepths, leaves []int, exp float64) (probs []float64, index []
 // same as MakeSubtreeMutation, but probability of picking nodes varies:
 // 50% of the times, internal nodes (functionals) are mutated with uniform probability
 // 50% of the times, leave nodes (terminals) are mutated with probability 1/exp^depth
-func MakeSubtreeMutationLevelExp(maxH int, exp float64, genFunction func(maxH int) *Node) func(*Node) {
+func MakeSubtreeMutationLevelExp(maxH int, exp float64, genFunction func(maxH int) *Node, statRecord StatRecorder) func(*Node) {
 	return func(t *Node) {
 		// Enumerate the nodes
 		tNodes, tDepths, tHeights := t.Enumerate()
@@ -304,7 +316,10 @@ func MakeSubtreeMutationLevelExp(maxH int, exp float64, genFunction func(maxH in
 			e := extractCFDinPlace(probs)
 			nid = index[e]
 		}
-		generateHLimitedAndSwap(tNodes, tDepths, tHeights, maxH, nid, genFunction)
+		rd := generateHLimitedAndSwap(tNodes, tDepths, tHeights, maxH, nid, genFunction)
+		if statRecord != nil {
+			statRecord(tDepths[nid], rd, len(tNodes[nid].children) == 0)
+		}
 	}
 }
 
@@ -315,7 +330,7 @@ func MakeSubtreeMutationLevelExp(maxH int, exp float64, genFunction func(maxH in
 type ProbComputer func(t *Node) func(*Node) float64
 
 // Subtree mutation, but uses an external tree to determine node mutation probabilities
-func MakeSubtreeMutationGuided(maxH int, genFunction func(maxH int) *Node, pc ProbComputer) func(*Node) {
+func MakeSubtreeMutationGuided(maxH int, genFunction func(maxH int) *Node, pc ProbComputer, statRecord StatRecorder) func(*Node) {
 	return func(t *Node) {
 		nl := pc(t)                                // Compute nodes likelihood function
 		tNodes, tDepths, tHeights := t.Enumerate() // Enumerate nodes
@@ -329,7 +344,10 @@ func MakeSubtreeMutationGuided(maxH int, genFunction func(maxH int) *Node, pc Pr
 		computeCDFinPlace(probs, inds)  // Compute CDF slice
 		nid := extractCFDinPlace(probs) // Extract node index
 		// Perform the mutation
-		generateHLimitedAndSwap(tNodes, tDepths, tHeights, maxH, inds[nid], genFunction)
+		rd := generateHLimitedAndSwap(tNodes, tDepths, tHeights, maxH, inds[nid], genFunction)
+		if statRecord != nil {
+			statRecord(tDepths[nid], rd, len(tNodes[nid].children) == 0)
+		}
 	}
 }
 

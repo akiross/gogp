@@ -19,15 +19,86 @@ import (
 	"time"
 )
 
+const (
+	mut_single_event       = "mut-single-event"
+	mut_single_improv      = "mut-single-improv"
+	mut_single_node_depth  = "mut-single-node-depth"
+	mut_single_node_repld  = "mut-single-node-repld"
+	mut_single_node_leaves = "mut-single-node-leaves"
+
+	mut_multi_event       = "mut-multi-event"
+	mut_multi_improv      = "mut-multi-improv"
+	mut_multi_node_depth  = "mut-multi-node-depth"
+	mut_multi_node_repld  = "mut-multi-node-repld"
+	mut_multi_node_leaves = "mut-multi-node-leaves"
+
+	mut_tree_event       = "mut-subtree-event"
+	mut_tree_improv      = "mut-subtree-improv"
+	mut_tree_node_depth  = "mut-tree-node-depth"
+	mut_tree_node_repld  = "mut-tree-node-repld"
+	mut_tree_node_leaves = "mut-tree-node-leaves"
+
+	mut_area_event       = "mut-area-event"
+	mut_area_improv      = "mut-area-improv"
+	mut_area_node_depth  = "mut-area-node-depth"
+	mut_area_node_repld  = "mut-area-node-repld"
+	mut_area_node_leaves = "mut-area-node-leaves"
+
+	mut_local_event  = "mut-local-event"
+	mut_local_improv = "mut-local-improv"
+
+	mut_count_multi = "mut-count-multiple"
+)
+
 func makeMultiMutation(s *base.Settings, multiMut, enbSin, enbNod, enbSub, enbAre, enbLoc bool) func(float64, *base.Individual) bool {
 	genFun := func(maxDep int) *node.Node {
 		return node.MakeTreeHalfAndHalf(maxDep, s.Functionals, s.Terminals)
 	}
 
-	singleMut := node.MakeTreeSingleMutation(s.Functionals, s.Terminals) // func(*Node)
-	nodeMut := node.MakeTreeNodeMutation(s.Functionals, s.Terminals)     // funcs, terms []gp.Primitive)// func(*Node) int {
-	subtrMut := node.MakeSubtreeMutation(s.MaxDepth, genFun)
-	areaMut := node.MakeSubtreeMutationGuided(s.MaxDepth, genFun, node.ArityDepthProbComputer)
+	// La mutazione a che profondità avviene?
+	// Quanto è profondo l'albero che vado a generare?
+	// Quanto è profondo l'albero che vado a sostituire?
+	// Separare foglie e nodi
+
+	countInt := func(name string, v int) {
+		if _, ok := s.IntCounters[name]; !ok {
+			s.IntCounters[name] = new(counter.IntCounter)
+		}
+		s.IntCounters[name].Count(v)
+	}
+
+	countBool := func(name string, v bool) {
+		if _, ok := s.Counters[name]; !ok {
+			s.Counters[name] = new(counter.BoolCounter)
+		}
+		s.Counters[name].Count(v)
+	}
+
+	statFuncSin := func(nDepth, replDepth int, isLeaf bool) {
+		countInt(mut_single_node_depth, nDepth)
+		countInt(mut_single_node_repld, replDepth)
+		countBool(mut_single_node_leaves, isLeaf)
+	}
+	statFuncNod := func(nDepth, replDepth int, isLeaf bool) {
+		countInt(mut_multi_node_depth, nDepth)
+		countInt(mut_multi_node_repld, replDepth)
+		countBool(mut_multi_node_leaves, isLeaf)
+	}
+	statFuncTree := func(nDepth, replDepth int, isLeaf bool) {
+		countInt(mut_tree_node_depth, nDepth)
+		countInt(mut_tree_node_repld, replDepth)
+		countBool(mut_tree_node_leaves, isLeaf)
+	}
+	statFuncArea := func(nDepth, replDepth int, isLeaf bool) {
+		countInt(mut_area_node_depth, nDepth)
+		countInt(mut_area_node_repld, replDepth)
+		countBool(mut_area_node_leaves, isLeaf)
+	}
+
+	singleMut := node.MakeTreeSingleMutation(s.Functionals, s.Terminals, statFuncSin) // func(*Node)
+	nodeMut := node.MakeTreeNodeMutation(s.Functionals, s.Terminals, statFuncNod)     // funcs, terms []gp.Primitive)// func(*Node) int {
+	subtrMut := node.MakeSubtreeMutation(s.MaxDepth, genFun, statFuncTree)
+	areaMut := node.MakeSubtreeMutationGuided(s.MaxDepth, genFun, node.ArityDepthProbComputer, statFuncArea)
 
 	const neighbSize = 5 // Neighborhood size for local search
 
@@ -39,13 +110,13 @@ func makeMultiMutation(s *base.Settings, multiMut, enbSin, enbNod, enbSub, enbAr
 			switch v {
 			case 0:
 				if enbSin {
-					ind.CountEvent("mut-single-event", event)
+					ind.CountEvent(mut_single_event, event)
 					if event {
 						evCount++
 						fit := ind.Evaluate()
 						singleMut(ind.Node)
 						newFit := ind.Evaluate()
-						ind.CountEvent("mut-single-improv", s.BetterThan(newFit, fit))
+						ind.CountEvent(mut_single_improv, s.BetterThan(newFit, fit))
 					}
 					if !multiMut {
 						return event
@@ -55,11 +126,11 @@ func makeMultiMutation(s *base.Settings, multiMut, enbSin, enbNod, enbSub, enbAr
 				if enbNod {
 					fit := ind.Evaluate()
 					event = nodeMut(pMut, ind.Node) != 0
-					ind.CountEvent("mut-multi-event", event)
+					ind.CountEvent(mut_multi_event, event)
 					if event {
 						evCount++
 						newFit := ind.Evaluate()
-						ind.CountEvent("mut-multi-improv", s.BetterThan(newFit, fit))
+						ind.CountEvent(mut_multi_improv, s.BetterThan(newFit, fit))
 					}
 					if !multiMut {
 						return event
@@ -67,13 +138,13 @@ func makeMultiMutation(s *base.Settings, multiMut, enbSin, enbNod, enbSub, enbAr
 				}
 			case 2:
 				if enbSub {
-					ind.CountEvent("mut-subtree-event", event)
+					ind.CountEvent(mut_tree_event, event)
 					if event {
 						evCount++
 						fit := ind.Evaluate()
 						subtrMut(ind.Node)
 						newFit := ind.Evaluate()
-						ind.CountEvent("mut-subtree-improv", s.BetterThan(newFit, fit))
+						ind.CountEvent(mut_tree_improv, s.BetterThan(newFit, fit))
 					}
 					if !multiMut {
 						return event
@@ -81,13 +152,13 @@ func makeMultiMutation(s *base.Settings, multiMut, enbSin, enbNod, enbSub, enbAr
 				}
 			case 3:
 				if enbAre {
-					ind.CountEvent("mut-area-event", event)
+					ind.CountEvent(mut_area_event, event)
 					if event {
 						evCount++
 						fit := ind.Evaluate()
 						areaMut(ind.Node)
 						newFit := ind.Evaluate()
-						ind.CountEvent("mut-area-improv", s.BetterThan(newFit, fit))
+						ind.CountEvent(mut_area_improv, s.BetterThan(newFit, fit))
 					}
 					if !multiMut {
 						return event
@@ -96,7 +167,7 @@ func makeMultiMutation(s *base.Settings, multiMut, enbSin, enbNod, enbSub, enbAr
 			default:
 				if enbLoc {
 					// Local search
-					ind.CountEvent("mut-local-event", event)
+					ind.CountEvent(mut_local_event, event)
 					if event {
 						evCount++
 						fit := ind.Evaluate()
@@ -112,7 +183,7 @@ func makeMultiMutation(s *base.Settings, multiMut, enbSin, enbNod, enbSub, enbAr
 						}
 						// Perform singleMut K times
 						newFit := ind.Evaluate()
-						ind.CountEvent("mut-local-improv", s.BetterThan(newFit, fit))
+						ind.CountEvent(mut_local_improv, s.BetterThan(newFit, fit))
 					}
 					if !multiMut {
 						return event
@@ -124,11 +195,7 @@ func makeMultiMutation(s *base.Settings, multiMut, enbSin, enbNod, enbSub, enbAr
 		// If this happens, all the mutations were disabled, or all the mutations
 		// were performed when multi mutation was enabled
 		if multiMut {
-			// TODO Counter.CountInt would be better, but needs a fix when printing
-			ind.CountEvent("mut-multi-count-0", evCount == 0)
-			ind.CountEvent("mut-multi-count-1", evCount == 1)
-			ind.CountEvent("mut-multi-count-2", evCount == 2)
-			ind.CountEvent("mut-multi-count-+", evCount > 2)
+			countInt(mut_count_multi, evCount)
 		}
 		return evCount > 0
 	}
@@ -207,34 +274,36 @@ func Evolve(calcMaxDepth func(*imgut.Image) int, fun, ter []gp.Primitive, drawfu
 
 	// Build statistic map
 	settings.Statistics = make(map[string]*sequence.SequenceStats)
-	settings.Counters = make(map[string]*counter.Counter)
+	settings.Counters = make(map[string]*counter.BoolCounter)
+	settings.IntCounters = make(map[string]*counter.IntCounter)
 
 	// Names of extra statistics
 	statsKeys := []string{}
 	countersKeys := []string{}
+	intCountersKeys := []string{}
 
 	if *fMutSin {
-		countersKeys = append(countersKeys, "mut-single-event", "mut-single-improv")
+		countersKeys = append(countersKeys, mut_single_event, mut_single_improv, mut_single_node_leaves)
+		intCountersKeys = append(intCountersKeys, mut_single_node_depth, mut_single_node_repld)
 	}
 	if *fMutNod {
-		countersKeys = append(countersKeys, "mut-multi-event", "mut-multi-improv")
+		countersKeys = append(countersKeys, mut_multi_event, mut_multi_improv, mut_multi_node_leaves)
+		intCountersKeys = append(intCountersKeys, mut_multi_node_depth, mut_multi_node_repld)
 	}
 	if *fMutSub {
-		countersKeys = append(countersKeys, "mut-subtree-event", "mut-subtree-improv")
+		countersKeys = append(countersKeys, mut_tree_event, mut_tree_improv, mut_tree_node_leaves)
+		intCountersKeys = append(intCountersKeys, mut_tree_node_depth, mut_tree_node_repld)
 	}
 	if *fMutAre {
-		countersKeys = append(countersKeys, "mut-area-event", "mut-area-improv")
+		countersKeys = append(countersKeys, mut_area_event, mut_area_improv, mut_area_node_leaves)
+		intCountersKeys = append(intCountersKeys, mut_area_node_depth, mut_area_node_repld)
 	}
 	if *fMutLoc {
-		countersKeys = append(countersKeys, "mut-local-event", "mut-local-improv")
+		countersKeys = append(countersKeys, mut_local_event, mut_local_improv)
+		//		intCountersKeys = append(intCountersKeys, "mut_local_") TODO
 	}
 	if *fMultiMut {
-		countersKeys = append(countersKeys,
-			"mut-multi-count-0",
-			"mut-multi-count-1",
-			"mut-multi-count-2",
-			"mut-multi-count-+",
-		)
+		intCountersKeys = append(intCountersKeys, mut_count_multi)
 	}
 
 	if *cpuProfile != "" {
@@ -297,7 +366,7 @@ func Evolve(calcMaxDepth func(*imgut.Image) int, fun, ter []gp.Primitive, drawfu
 	*/
 
 	// Number of parallel generators to setup
-	pipelineSize := 4
+	pipelineSize := 1 // Was 4 FIXME but there are statistics used in parallel and not ready for concurrent access
 	// Containers for pipelined operators
 	chXo := make([]<-chan ga.PipelineIndividual, pipelineSize)
 	chMut := make([]<-chan ga.PipelineIndividual, pipelineSize)
@@ -324,7 +393,7 @@ func Evolve(calcMaxDepth func(*imgut.Image) int, fun, ter []gp.Primitive, drawfu
 
 		// Statistics and samples
 		if g%*saveInterval == 0 {
-			snapName, snapPopName := sta.SaveSnapshot(pop, *quiet, countersKeys, statsKeys)
+			snapName, snapPopName := sta.SaveSnapshot(pop, *quiet, countersKeys, statsKeys, intCountersKeys)
 			// Save best individual
 			pop.BestIndividual().Fitness()
 			pop.BestIndividual().(*base.Individual).ImgTemp.WritePNG(snapName)
@@ -371,7 +440,7 @@ func Evolve(calcMaxDepth func(*imgut.Image) int, fun, ter []gp.Primitive, drawfu
 	//	fmt.Println("Best individual", pop.BestIndividual())
 	//}
 
-	snapName, snapPopName := sta.SaveSnapshot(pop, *quiet, countersKeys, statsKeys)
+	snapName, snapPopName := sta.SaveSnapshot(pop, *quiet, countersKeys, statsKeys, intCountersKeys)
 	// Save best individual
 	pop.BestIndividual().Fitness()
 	pop.BestIndividual().(*base.Individual).ImgTemp.WritePNG(snapName)
