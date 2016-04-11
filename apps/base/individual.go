@@ -28,6 +28,7 @@ type Settings struct {
 	Draw func(*Individual, *imgut.Image)
 
 	// Operators used in evolution
+	GenFunc   func(int) *node.Node // Generate tree
 	CrossOver func(float64, *Individual, *Individual) bool
 	Mutate    func(float64, *Individual) bool
 
@@ -177,7 +178,7 @@ func (ind *Individual) Invalidate() {
 }
 
 func (ind *Individual) Initialize() {
-	ind.Node = node.MakeTreeHalfAndHalf(ind.set.MaxDepth, ind.set.Functionals, ind.set.Terminals)
+	ind.Node = ind.set.GenFunc(ind.set.MaxDepth)
 	ind.ImgTemp = imgut.Create(ind.set.ImgTarget.W, ind.set.ImgTarget.H, ind.set.ImgTarget.ColorSpace)
 }
 

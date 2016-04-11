@@ -20,6 +20,8 @@ import (
 )
 
 const (
+	tree_init_depth = "tree-init-depth"
+
 	mut_single_event       = "mut-single-event"
 	mut_single_improv      = "mut-single-improv"
 	mut_single_node_depth  = "mut-single-node-depth"
@@ -51,10 +53,6 @@ const (
 )
 
 func makeMultiMutation(s *base.Settings, multiMut, enbSin, enbNod, enbSub, enbAre, enbLoc bool) func(float64, *base.Individual) bool {
-	genFun := func(maxDep int) *node.Node {
-		return node.MakeTreeHalfAndHalf(maxDep, s.Functionals, s.Terminals)
-	}
-
 	// La mutazione a che profondità avviene?
 	// Quanto è profondo l'albero che vado a generare?
 	// Quanto è profondo l'albero che vado a sostituire?
@@ -97,8 +95,8 @@ func makeMultiMutation(s *base.Settings, multiMut, enbSin, enbNod, enbSub, enbAr
 
 	singleMut := node.MakeTreeSingleMutation(s.Functionals, s.Terminals, statFuncSin) // func(*Node)
 	nodeMut := node.MakeTreeNodeMutation(s.Functionals, s.Terminals, statFuncNod)     // funcs, terms []gp.Primitive)// func(*Node) int {
-	subtrMut := node.MakeSubtreeMutation(s.MaxDepth, genFun, statFuncTree)
-	areaMut := node.MakeSubtreeMutationGuided(s.MaxDepth, genFun, node.ArityDepthProbComputer, statFuncArea)
+	subtrMut := node.MakeSubtreeMutation(s.MaxDepth, s.GenFunc, statFuncTree)
+	areaMut := node.MakeSubtreeMutationGuided(s.MaxDepth, s.GenFunc, node.ArityDepthProbComputer, statFuncArea)
 
 	const neighbSize = 5 // Neighborhood size for local search
 
@@ -214,14 +212,6 @@ func makeCrossover(s *base.Settings) func(float64, *base.Individual, *base.Indiv
 }
 
 func Evolve(calcMaxDepth func(*imgut.Image) int, fun, ter []gp.Primitive, drawfun func(*base.Individual, *imgut.Image)) {
-	// Build settings
-	var settings base.Settings
-	// Primitives to use
-	settings.Functionals = fun
-	settings.Terminals = ter
-	// Draw function to use
-	settings.Draw = drawfun
-
 	startTime := time.Now()
 
 	// Setup options
@@ -234,6 +224,10 @@ func Evolve(calcMaxDepth func(*imgut.Image) int, fun, ter []gp.Primitive, drawfu
 	pMut := fs.Float64("M", 0.1, "Bit mutation probability")
 	quiet := fs.Bool("q", false, "Quiet mode")
 	fElite := fs.Bool("el", false, "Enable elite individual")
+
+	fInitFull := fs.Bool("full", true, "Enable full initialization")
+	fInitGrow := fs.Bool("grow", true, "Enable grow initialization")
+	// fInitRamped := fs.Bool("ramp", true, "Enable ramped initialization") TODO
 
 	fMutSin := fs.Bool("ms", false, "Enable Single Mutation")
 	fMutNod := fs.Bool("mn", false, "Enable Node Mutation")
@@ -272,6 +266,34 @@ func Evolve(calcMaxDepth func(*imgut.Image) int, fun, ter []gp.Primitive, drawfu
 
 	sta := stats.Create(basedir, basename)
 
+	// Build settings
+	var settings base.Settings
+	// Primitives to use
+	settings.Functionals = fun
+	settings.Terminals = ter
+	// Draw function to use
+	settings.Draw = drawfun
+
+	// Pick initialization method based on flags
+	var genFuncBit func(maxH int, funcs, terms []gp.Primitive) *Node
+
+	if *fInitFull && !*fInitGrow {
+		genFuncBit = node.MakeTreeFull // Initialize tree using full
+	} else if !*fInitFull && *fInitGrow {
+		genFuncBit = node.MakeTreeGrowBalanced // Initialize using grow
+	} else {
+		genFuncBit = node.MakeTreeHalfAndHalf // Initialize using both (half and half)
+	}
+	settings.GenFunc = func(maxDep int) *node.Node {
+		t := genFuncBit(maxDep, fun, ter)
+		s := settings
+		if _, ok := s.IntCounters[tree_init_depth]; !ok {
+			s.IntCounters[tree_init_depth] = new(counter.IntCounter)
+		}
+		s.IntCounters[tree_init_depth].Count(node.Depth(t))
+		return t
+	}
+
 	// Build statistic map
 	settings.Statistics = make(map[string]*sequence.SequenceStats)
 	settings.Counters = make(map[string]*counter.BoolCounter)
@@ -281,6 +303,8 @@ func Evolve(calcMaxDepth func(*imgut.Image) int, fun, ter []gp.Primitive, drawfu
 	statsKeys := []string{}
 	countersKeys := []string{}
 	intCountersKeys := []string{}
+
+	intCountersKeys = append(intCountersKeys, tree_init_depth)
 
 	if *fMutSin {
 		countersKeys = append(countersKeys, mut_single_event, mut_single_improv, mut_single_node_leaves)
