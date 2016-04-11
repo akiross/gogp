@@ -121,6 +121,27 @@ func TestSize(t *testing.T) {
 	}
 }
 
+func TestDepth(t *testing.T) {
+	tests := []struct {
+		depth int
+		tree  *nod
+	}{
+		{0, mkt(0)},
+		{1, mkn(0, mkt(1), mkt(2))},
+		{2, mkn(0, mkt(1), mkn(2, mkt(3), mkt(4)))},
+		{2, mkn(0, mkn(1, mkt(2), mkt(3)), mkt(4))},
+		{2, mkn(0, mkn(1, mkt(2), mkt(3)), mkn(4, mkt(5), mkt(6)))},
+		{3, mkn(0, mkn(1, mkn(2, mkt(3), mkt(4)), mkt(5)), mkt(6))},
+		{3, mkn(0, mkn(1, mkt(2), mkn(3, mkt(4), mkt(5))), mkt(6))},
+	}
+
+	for _, te := range tests {
+		if d := Depth(te.tree); d != te.depth {
+			t.Error("Expected depth", te.depth, "but computed depth was", d)
+		}
+	}
+}
+
 func TestEnumerate(t *testing.T) {
 	t5 := &nod{6, nil}
 	t4 := &nod{5, nil}
