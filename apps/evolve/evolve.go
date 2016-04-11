@@ -227,7 +227,7 @@ func Evolve(calcMaxDepth func(*imgut.Image) int, fun, ter []gp.Primitive, drawfu
 
 	fInitFull := fs.Bool("full", true, "Enable full initialization")
 	fInitGrow := fs.Bool("grow", true, "Enable grow initialization")
-	// fInitRamped := fs.Bool("ramp", true, "Enable ramped initialization") TODO
+	fInitRamped := fs.Bool("ramp", true, "Enable ramped initialization")
 
 	fMutSin := fs.Bool("ms", false, "Enable Single Mutation")
 	fMutNod := fs.Bool("mn", false, "Enable Node Mutation")
@@ -274,14 +274,20 @@ func Evolve(calcMaxDepth func(*imgut.Image) int, fun, ter []gp.Primitive, drawfu
 	// Draw function to use
 	settings.Draw = drawfun
 
+	settings.Ramped = *fInitRamped
+	fmt.Println("Using ramped initialization")
+
 	// Pick initialization method based on flags
 	var genFuncBit func(maxH int, funcs, terms []gp.Primitive) *node.Node
 
 	if *fInitFull && !*fInitGrow {
+		fmt.Println("Using init strategy: full")
 		genFuncBit = node.MakeTreeFull // Initialize tree using full
 	} else if !*fInitFull && *fInitGrow {
+		fmt.Println("Using init strategy: balanced grow")
 		genFuncBit = node.MakeTreeGrowBalanced // Initialize using grow
 	} else {
+		fmt.Println("Using init strategy: half-and-half")
 		genFuncBit = node.MakeTreeHalfAndHalf // Initialize using both (half and half)
 	}
 	settings.GenFunc = func(maxDep int) *node.Node {

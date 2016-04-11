@@ -16,6 +16,8 @@ type Settings struct {
 	// We keep this low, because trees may grow too large
 	// and use too much memory
 	MaxDepth int
+	// Ramped initialization
+	Ramped bool
 
 	// Images used for evaluation
 	//ImgTarget, ImgTemp *imgut.Image
