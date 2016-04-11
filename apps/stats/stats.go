@@ -150,14 +150,18 @@ func (stats *Stats) SaveSnapshot(pop *base.Population, quiet bool, cntKeys, staK
 		for _, k := range intCntKeys {
 			if nst, ok := pop.Set.IntCounters[k]; ok {
 				keys := nst.Counted()
-				vals := make([]string, len(keys))
-				for i, n := range keys {
-					vals[i] = fmt.Sprintf("%d:%d", n, nst.AbsoluteFrequency(n))
+				if len(keys) == 0 {
+					fmt.Printf(" %*s |", wideField, "0:0")
+				} else {
+					vals := make([]string, len(keys))
+					for i, n := range keys {
+						vals[i] = fmt.Sprintf("%d:%d", n, nst.AbsoluteFrequency(n))
+					}
+					fmt.Printf(" %*s |", wideField, strings.Join(vals, ","))
+					nst.Clear()
 				}
-				fmt.Printf(" %*s |", wideField, strings.Join(vals, ","))
-				nst.Clear()
 			} else {
-				fmt.Printf(" %*s |", wideField, "-")
+				fmt.Printf(" %*s |", wideField, "0:0")
 			}
 		}
 		fmt.Println()
