@@ -28,13 +28,8 @@ func Depth(t Tree) int {
 
 // The number of nodes in the tree
 func Size(t Tree) int {
-	if t.ChiCo() == 0 {
-		return 1
-	}
-	c := 1
-	for i := 1; i < t.ChiCo(); i++ {
-		c += Size(t.Child(i))
-	}
+	c := 0
+	Traverse(t, func(Tree) { c++ }, nil)
 	return c
 }
 

@@ -44,6 +44,36 @@ func TestMakeTreeGrowBalanced(t *testing.T) {
 	t.Error("Termals vs functionals", float64(numTerms)/float64(numFuncs))
 }
 
+func TestMakeTreeFull(t *testing.T) {
+	// Generates trees of random height with full
+	// enumerate the nodes and count how many are
+	// at a given depth. They should be perfectly
+	// distributed for a binary tree.
+
+	for d := 0; d < 10; d++ {
+		counts := make(map[int]int)
+
+		tr := MakeTreeFull(d, []gp.Primitive{
+			Functional2(Sum),
+			Functional2(Sub),
+		}, []gp.Primitive{
+			Terminal1(c_zero),
+			Terminal1(c_one),
+		})
+		// Count how many nodes for each depth
+		_, tdep, _ := tr.Enumerate()
+		for _, j := range tdep {
+			counts[j] += 1
+		}
+		// Check if the number of nodes is correct
+		for j, n := 0, 1; j < d; j, n = j+1, n*2 {
+			if counts[j] != n {
+				t.Error("at level", j, "we expected", n, "nodes, but", counts[j], "were found")
+			}
+		}
+	}
+}
+
 func TestSubtreeMutation(t *testing.T) {
 
 }

@@ -3,6 +3,7 @@ package node
 import (
 	"container/list"
 	"fmt"
+	"reflect"
 	"testing"
 )
 
@@ -12,11 +13,22 @@ type nod struct {
 }
 
 func (n *nod) ChiCo() int {
+	if n == nil {
+		return 0
+	}
 	return len(n.children)
 }
 
 func (n *nod) Child(i int) Tree {
 	return n.children[i]
+}
+
+func mkn(v int, l, r *nod) *nod {
+	return &nod{v, []*nod{l, r}}
+}
+
+func mkt(v int) *nod {
+	return &nod{v, nil}
 }
 
 func (n *nod) String() string {
@@ -29,6 +41,83 @@ func (n *nod) String() string {
 			sChildren += ", " + fmt.Sprint(n.Child(i))
 		}
 		return fmt.Sprintf("F{%v}(%v)", n.v, sChildren)
+	}
+}
+
+func skewness(r Tree) float64 {
+	if r.ChiCo() == 0 {
+		return 0
+	} else {
+		sk := 0.0
+		for i := 0; i < r.ChiCo(); i++ {
+			var d, s, j float64
+			d = float64(Depth(r.Child(i)))
+			s = float64(Size(r.Child(i)))
+			if r.ChiCo() > 1 {
+				j = 2*float64(i)/float64(r.ChiCo()-1) - 1
+			} else {
+				j = 0
+			}
+			sk += j * d * s
+		}
+		return sk
+	}
+}
+
+// Measuring the skewness of a tree
+func TestSkewness(t *testing.T) {
+	tests := []struct {
+		expSkew float64
+		tree    *nod
+	}{
+		//		{0.0, mkn(0, nil, nil)},
+		//		{-1.0, mkn(0, mkn(1, nil, nil), nil)},
+		//		{1.0, mkn(0, nil, mkn(1, nil, nil))},
+		{0, mkt(0)},
+		{0, mkn(0, mkt(1), mkt(2))},
+		{0, mkn(0, mkt(1), mkn(2, mkt(3), mkt(4)))},
+		{0, mkn(0, mkn(1, mkt(2), mkt(3)), mkt(4))},
+		{0, mkn(0, mkn(1, mkt(2), mkt(3)), mkn(4, mkt(5), mkt(6)))},
+		{0, mkn(0, mkn(1, mkn(2, mkt(3), mkt(4)), mkt(5)), mkt(6))},
+		{0, mkn(0, mkn(1, mkt(2), mkn(3, mkt(4), mkt(5))), mkt(6))},
+
+		//		{0.0, mkn(0, mkt(1), mkt(2))},
+	}
+
+	for _, te := range tests {
+		t.Error("Test\n", PrettyPrint(te.tree, func(n Tree) string {
+			if n == nil || reflect.ValueOf(n).IsNil() {
+				return "[Nil]"
+			}
+			return fmt.Sprint(n.(*nod).v)
+		}), "got skew", skewness(te.tree))
+		continue
+		if sk := skewness(te.tree); sk != te.expSkew {
+			t.Error("Unexpected skewness: got", sk, "expected", te.expSkew)
+		} else {
+			fmt.Println("Test passed:", te)
+		}
+	}
+}
+
+func TestSize(t *testing.T) {
+	tests := []struct {
+		size int
+		tree *nod
+	}{
+		{1, mkt(0)},
+		{3, mkn(0, mkt(1), mkt(2))},
+		{5, mkn(0, mkt(1), mkn(2, mkt(3), mkt(4)))},
+		{5, mkn(0, mkn(1, mkt(2), mkt(3)), mkt(4))},
+		{7, mkn(0, mkn(1, mkt(2), mkt(3)), mkn(4, mkt(5), mkt(6)))},
+		{7, mkn(0, mkn(1, mkn(2, mkt(3), mkt(4)), mkt(5)), mkt(6))},
+		{7, mkn(0, mkn(1, mkt(2), mkn(3, mkt(4), mkt(5))), mkt(6))},
+	}
+
+	for _, te := range tests {
+		if s := Size(te.tree); s != te.size {
+			t.Error("Expected size", te.size, "but computed size was", s)
+		}
 	}
 }
 

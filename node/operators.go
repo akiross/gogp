@@ -241,9 +241,9 @@ func MakeSubtreeSwapMutation(funcs, terms []gp.Primitive, statRecord StatRecorde
 
 // Given a tree (t*) and a node in it (nid), generates a random tree with the
 // appropriate height and replace it with the node
-func generateHLimitedAndSwap(tNodes []*Node, tDepths, tHeights []int, maxH, nid int, genFunction func(maxH int) *Node) int {
+func generateHLimitedAndSwap(tNodes []*Node, tDepths []int, maxH, nid int, genFunction func(maxH int) *Node) int {
 	// The random tree cannot make tree larger
-	hLimit := maxH - tDepths[nid] - tHeights[nid]
+	hLimit := maxH - tDepths[nid]
 	// Build the replacement
 	replacement := genFunction(hLimit)
 	rd := Depth(replacement)
@@ -258,11 +258,11 @@ func generateHLimitedAndSwap(tNodes []*Node, tDepths, tHeights []int, maxH, nid 
 func MakeSubtreeMutation(maxH int, genFunction func(maxH int) *Node, statRecord StatRecorder) func(*Node) {
 	return func(t *Node) {
 		// Get a slice with the nodes
-		tNodes, tDepths, tHeights := t.Enumerate()
+		tNodes, tDepths, _ := t.Enumerate()
 		size := len(tNodes)
 		// Pick a random node
 		nid := rand.Intn(size)
-		rd := generateHLimitedAndSwap(tNodes, tDepths, tHeights, maxH, nid, genFunction)
+		rd := generateHLimitedAndSwap(tNodes, tDepths, maxH, nid, genFunction)
 		if statRecord != nil {
 			statRecord(tDepths[nid], rd, len(tNodes[nid].children) == 0)
 		}
@@ -301,7 +301,7 @@ func makeExpProbs(tDepths, leaves []int, exp float64) (probs []float64, index []
 func MakeSubtreeMutationLevelExp(maxH int, exp float64, genFunction func(maxH int) *Node, statRecord StatRecorder) func(*Node) {
 	return func(t *Node) {
 		// Enumerate the nodes
-		tNodes, tDepths, tHeights := t.Enumerate()
+		tNodes, tDepths, _ := t.Enumerate()
 		leaves, nonleaves := partitionLeaves(tNodes)
 		var nid int
 		// Pick one category
@@ -316,7 +316,7 @@ func MakeSubtreeMutationLevelExp(maxH int, exp float64, genFunction func(maxH in
 			e := extractCFDinPlace(probs)
 			nid = index[e]
 		}
-		rd := generateHLimitedAndSwap(tNodes, tDepths, tHeights, maxH, nid, genFunction)
+		rd := generateHLimitedAndSwap(tNodes, tDepths, maxH, nid, genFunction)
 		if statRecord != nil {
 			statRecord(tDepths[nid], rd, len(tNodes[nid].children) == 0)
 		}
@@ -332,8 +332,8 @@ type ProbComputer func(t *Node) func(*Node) float64
 // Subtree mutation, but uses an external tree to determine node mutation probabilities
 func MakeSubtreeMutationGuided(maxH int, genFunction func(maxH int) *Node, pc ProbComputer, statRecord StatRecorder) func(*Node) {
 	return func(t *Node) {
-		nl := pc(t)                                // Compute nodes likelihood function
-		tNodes, tDepths, tHeights := t.Enumerate() // Enumerate nodes
+		nl := pc(t)                         // Compute nodes likelihood function
+		tNodes, tDepths, _ := t.Enumerate() // Enumerate nodes
 		probs := make([]float64, len(tNodes))
 		inds := make([]int, len(tNodes))
 		for i, v := range tNodes {
@@ -344,7 +344,7 @@ func MakeSubtreeMutationGuided(maxH int, genFunction func(maxH int) *Node, pc Pr
 		computeCDFinPlace(probs, inds)  // Compute CDF slice
 		nid := extractCFDinPlace(probs) // Extract node index
 		// Perform the mutation
-		rd := generateHLimitedAndSwap(tNodes, tDepths, tHeights, maxH, inds[nid], genFunction)
+		rd := generateHLimitedAndSwap(tNodes, tDepths, maxH, inds[nid], genFunction)
 		if statRecord != nil {
 			statRecord(tDepths[nid], rd, len(tNodes[nid].children) == 0)
 		}
