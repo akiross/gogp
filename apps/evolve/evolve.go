@@ -275,7 +275,7 @@ func Evolve(calcMaxDepth func(*imgut.Image) int, fun, ter []gp.Primitive, drawfu
 	settings.Draw = drawfun
 
 	// Pick initialization method based on flags
-	var genFuncBit func(maxH int, funcs, terms []gp.Primitive) *Node
+	var genFuncBit func(maxH int, funcs, terms []gp.Primitive) *node.Node
 
 	if *fInitFull && !*fInitGrow {
 		genFuncBit = node.MakeTreeFull // Initialize tree using full
