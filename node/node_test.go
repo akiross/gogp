@@ -91,12 +91,12 @@ func TestCrossover(t *testing.T) {
 	// Repeat N times with random trees
 	N, M := 100, 100
 	for i := 0; i < N; i++ {
-		t1 := MakeTreeHalfAndHalf(maxDepth, functionals, terminals)
-		t2 := MakeTreeHalfAndHalf(maxDepth, functionals, terminals)
-		t3 := MakeTreeHalfAndHalf(maxDepth+1, functionals, terminals)
-		t4 := MakeTreeHalfAndHalf(maxDepth+1, functionals, terminals)
-		t5 := MakeTreeHalfAndHalf(maxDepth+2, functionals, terminals)
-		t6 := MakeTreeHalfAndHalf(maxDepth+2, functionals, terminals)
+		t1 := MakeTreeHalfAndHalf(0, maxDepth, functionals, terminals)
+		t2 := MakeTreeHalfAndHalf(0, maxDepth, functionals, terminals)
+		t3 := MakeTreeHalfAndHalf(0, maxDepth+1, functionals, terminals)
+		t4 := MakeTreeHalfAndHalf(0, maxDepth+1, functionals, terminals)
+		t5 := MakeTreeHalfAndHalf(0, maxDepth+2, functionals, terminals)
+		t6 := MakeTreeHalfAndHalf(0, maxDepth+2, functionals, terminals)
 
 		// Repeat M times each crossover
 		for j := 0; j < M; j++ {

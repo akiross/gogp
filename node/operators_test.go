@@ -12,10 +12,21 @@ func c_zero(_ int) int { return 0 }
 func c_one(_ int) int  { return 1 }
 
 func genBalTree(maxDepth int) *Node {
-	return MakeTreeGrowBalanced(maxDepth, []gp.Primitive{
+	return MakeTreeGrowBalanced(0, maxDepth, []gp.Primitive{
 		Functional2(Sum),
 		Functional2(Sub),
 		Functional1(Abs),
+	}, []gp.Primitive{
+		Terminal1(c_zero),
+		Terminal1(c_one),
+		Terminal1(Identity1),
+	})
+}
+
+func genFullBinTree(maxDepth int) *Node {
+	return MakeTreeFull(0, maxDepth, []gp.Primitive{
+		Functional2(Sum),
+		Functional2(Sub),
 	}, []gp.Primitive{
 		Terminal1(c_zero),
 		Terminal1(c_one),
@@ -53,7 +64,7 @@ func TestMakeTreeFull(t *testing.T) {
 	for d := 0; d < 10; d++ {
 		counts := make(map[int]int)
 
-		tr := MakeTreeFull(d, []gp.Primitive{
+		tr := MakeTreeFull(0, d, []gp.Primitive{
 			Functional2(Sum),
 			Functional2(Sub),
 		}, []gp.Primitive{
@@ -132,7 +143,7 @@ func TestSubtreeMutationGuided(t *testing.T) {
 
 func TestArityDepthProbComputer(t *testing.T) {
 	// Generate a random tree
-	tr := genBalTree(3)
+	tr := genFullBinTree(3) //genBalTree(3)
 	nodes, _, _ := tr.Enumerate()
 
 	// Build probability computer

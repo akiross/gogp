@@ -58,7 +58,7 @@ func makeTree(depth int, funcs, terms []gp.Primitive, strategy func(int, int, in
 }
 
 // Builds a tree using the grow method
-func MakeTreeGrow(maxH int, funcs, terms []gp.Primitive) *Node {
+func MakeTreeGrow(minH, maxH int, funcs, terms []gp.Primitive) *Node {
 	growStrategy := func(depth, nFuncs, nTerms int) (isFunc bool, k int) {
 		if depth == 0 {
 			return false, rand.Intn(nTerms)
@@ -75,7 +75,7 @@ func MakeTreeGrow(maxH int, funcs, terms []gp.Primitive) *Node {
 }
 
 // Builds a tree using the grow method, but pick 50-50 funcs and terms
-func MakeTreeGrowBalanced(maxH int, funcs, terms []gp.Primitive) *Node {
+func MakeTreeGrowBalanced(minH, maxH int, funcs, terms []gp.Primitive) *Node {
 	growBalStrategy := func(depth, nFuncs, nTerms int) (isFunc bool, k int) {
 		if depth == 0 {
 			return false, rand.Intn(nTerms)
@@ -93,7 +93,7 @@ func MakeTreeGrowBalanced(maxH int, funcs, terms []gp.Primitive) *Node {
 }
 
 // Builds a tree using the full method
-func MakeTreeFull(maxH int, funcs, terms []gp.Primitive) *Node {
+func MakeTreeFull(minH, maxH int, funcs, terms []gp.Primitive) *Node {
 	fullStrategy := func(depth, nFuncs, nTerms int) (isFunc bool, k int) {
 		if depth == 0 {
 			return false, rand.Intn(nTerms)
@@ -106,11 +106,11 @@ func MakeTreeFull(maxH int, funcs, terms []gp.Primitive) *Node {
 
 // Make a tree using the half and half method.
 // It's not the ramped version: it just uses grow or full with 50% chances
-func MakeTreeHalfAndHalf(maxH int, funcs, terms []gp.Primitive) *Node {
+func MakeTreeHalfAndHalf(minH, maxH int, funcs, terms []gp.Primitive) *Node {
 	if rand.Intn(2) == 0 {
-		return MakeTreeGrowBalanced(maxH, funcs, terms)
+		return MakeTreeGrowBalanced(minH, maxH, funcs, terms)
 	} else {
-		return MakeTreeFull(maxH, funcs, terms)
+		return MakeTreeFull(minH, maxH, funcs, terms)
 	}
 }
 
@@ -295,6 +295,7 @@ func makeExpProbs(tDepths, leaves []int, exp float64) (probs []float64, index []
 	return
 }
 
+/*
 // same as MakeSubtreeMutation, but probability of picking nodes varies:
 // 50% of the times, internal nodes (functionals) are mutated with uniform probability
 // 50% of the times, leave nodes (terminals) are mutated with probability 1/exp^depth
@@ -322,6 +323,7 @@ func MakeSubtreeMutationLevelExp(maxH int, exp float64, genFunction func(maxH in
 		}
 	}
 }
+*/
 
 // ProbComputer should return a pure function that associates to each node of the input
 // tree a likelihood of being randomly selected. The likelihoods will be
@@ -340,11 +342,11 @@ func MakeSubtreeMutationGuided(maxH int, genFunction func(maxH int) *Node, pc Pr
 			inds[i] = i
 			probs[i] = nl(v)
 		}
-		normalSlice(probs)              // Normalize likelihood
-		computeCDFinPlace(probs, inds)  // Compute CDF slice
-		nid := extractCFDinPlace(probs) // Extract node index
+		normalSlice(probs)                    // Normalize likelihood
+		computeCDFinPlace(probs, inds)        // Compute CDF slice
+		nid := inds[extractCFDinPlace(probs)] // Extract node index
 		// Perform the mutation
-		rd := generateHLimitedAndSwap(tNodes, tDepths, maxH, inds[nid], genFunction)
+		rd := generateHLimitedAndSwap(tNodes, tDepths, maxH, nid, genFunction)
 		if statRecord != nil {
 			statRecord(tDepths[nid], rd, len(tNodes[nid].children) == 0)
 		}
@@ -464,6 +466,7 @@ func MakeTree1pCrossover(maxDepth int) func(_, _ *Node) {
 			// Copy only the index of nodes allowed to be picked
 			// A node n2 in t2 can be picked after the picking of node n1 in t1 if:
 			//   depth(n1) + height(n2) <= MaxDepth AND depth(n2) + height(n1) <= MaxDepth
+			// Specular condition is necessary because we swap nodes
 			allowed := make([]int, 0, len(t2Nodes))
 			for i := 0; i < len(t2Nodes); i++ {
 				if (t1Depths[rn1]+t2Heights[i] <= maxDepth) && (t2Depths[i]+t1Heights[rn1] <= maxDepth) {

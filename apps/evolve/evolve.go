@@ -275,10 +275,12 @@ func Evolve(calcMaxDepth func(*imgut.Image) int, fun, ter []gp.Primitive, drawfu
 	settings.Draw = drawfun
 
 	settings.Ramped = *fInitRamped
-	fmt.Println("Using ramped initialization")
+	if settings.Ramped {
+		fmt.Println("Using ramped initialization")
+	}
 
 	// Pick initialization method based on flags
-	var genFuncBit func(maxH int, funcs, terms []gp.Primitive) *node.Node
+	var genFuncBit func(minH, maxH int, funcs, terms []gp.Primitive) *node.Node
 
 	if *fInitFull && !*fInitGrow {
 		fmt.Println("Using init strategy: full")
@@ -291,7 +293,7 @@ func Evolve(calcMaxDepth func(*imgut.Image) int, fun, ter []gp.Primitive, drawfu
 		genFuncBit = node.MakeTreeHalfAndHalf // Initialize using both (half and half)
 	}
 	settings.GenFunc = func(maxDep int) *node.Node {
-		t := genFuncBit(maxDep, fun, ter)
+		t := genFuncBit(0, maxDep, fun, ter) // /* TODO */ sistemare la minH
 		s := settings
 		if _, ok := s.IntCounters[tree_init_depth]; !ok {
 			s.IntCounters[tree_init_depth] = new(counter.IntCounter)
