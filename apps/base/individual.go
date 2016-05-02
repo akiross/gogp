@@ -1,6 +1,7 @@
 package base
 
 import (
+	"bytes"
 	"fmt"
 	"github.com/akiross/gogp/ga"
 	"github.com/akiross/gogp/gp"
@@ -9,7 +10,12 @@ import (
 	"github.com/akiross/gogp/util/stats/counter"
 	"github.com/akiross/gogp/util/stats/sequence"
 	"github.com/gonum/floats"
+	"io/ioutil"
 	"math"
+	"os"
+	"os/exec"
+	"strconv"
+	"strings"
 )
 
 type Settings struct {
@@ -29,8 +35,12 @@ type Settings struct {
 
 	Draw func(*Individual, *imgut.Image)
 
+	// Fitness func for one individual
+	FitFunc func(ind *imgut.Image) float64
+
 	// Operators used in evolution
 	GenFunc   func(int) *node.Node // Generate tree
+	Select    func([]*Individual, int) []ga.Individual
 	CrossOver func(float64, *Individual, *Individual) bool
 	Mutate    func(float64, *Individual) bool
 
@@ -90,22 +100,38 @@ func (ind *Individual) Draw(img *imgut.Image) {
 	ind.set.Draw(ind, img)
 }
 
-// This method evaluates the current genotype and returns its fitness
-// without caching the results (i.e. fitnessIsValid is NOT read or written)
-func (ind *Individual) Evaluate() ga.Fitness {
-	// Draw the individual
-	ind.set.Draw(ind, ind.ImgTemp)
+func MakeFitMSE(targetImage *imgut.Image) func(*imgut.Image) float64 {
+	dataTarg := imgut.ToSliceChans(targetImage, "R")
+	return func(indImage *imgut.Image) float64 {
+		// Get data
+		dataImg := imgut.ToSliceChans(indImage, "R")
+		// Difference (X - Y)
+		floats.Sub(dataImg, dataTarg)
+		// Squared (X - Y)^2
+		floats.Mul(dataImg, dataImg)
+		// Summation
+		return floats.Sum(dataImg) / float64(len(dataImg))
+	}
+}
 
-	var rmse float64
+func MakeFitRMSE(targetImage *imgut.Image) func(*imgut.Image) float64 {
+	// The MSE for compared
+	msef := MakeFitMSE(targetImage)
+	return func(indImage *imgut.Image) float64 {
+		return math.Sqrt(msef(indImage))
+	}
+}
 
-	if false { // Linear scaling
+func MakeFitLinScale(targetImage *imgut.Image) func(*imgut.Image) float64 {
+	// Pre-compute image to slice of floats
+	dataTarg := imgut.ToSlice(targetImage)
+	// Pre-compute average
+	avgt := floats.Sum(dataTarg) / float64(len(dataTarg))
+	return func(indImage *imgut.Image) float64 {
 		// Images to vector
-		dataInd := imgut.ToSlice(ind.ImgTemp)
-		dataTarg := imgut.ToSlice(ind.set.ImgTarget)
+		dataInd := imgut.ToSlice(indImage)
 		// Compute average pixels
 		avgy := floats.Sum(dataInd) / float64(len(dataInd))
-		avgt := floats.Sum(dataTarg) / float64(len(dataTarg))
-
 		// Difference y - avgy
 		y_avgy := make([]float64, len(dataInd))
 		copy(y_avgy, dataInd)
@@ -132,43 +158,85 @@ func (ind *Individual) Evaluate() ga.Fitness {
 		floats.Sub(dataInd, dataTarg) // (a + b * y - t)
 		floats.Mul(dataInd, dataInd)  // (a + b * y - t)^2
 		total := floats.Sum(dataInd)  // Sum(...)
-		rmse = math.Sqrt(total / float64(len(dataInd)))
-
-		// Save RMSE as fitness
-		ind.fitness = ga.Fitness(rmse)
-	} else { // Normal RMSE image
-		// Compute RMSE
-		rmse = imgut.PixelRMSE(ind.ImgTemp, ind.set.ImgTarget)
+		return math.Sqrt(total / float64(len(dataInd)))
 	}
+}
 
-	// When true, it will multiply by edge-detection RMSE
-	if false {
-		// Compute edge detection
-		edgeKern := &imgut.ConvolutionMatrix{3, []float64{
-			0, 1, 0,
-			1, -4, 1,
-			0, 1, 0},
-		}
-		imgEdge := imgut.ApplyConvolution(edgeKern, ind.ImgTemp)
-		targEdge := imgut.ApplyConvolution(edgeKern, ind.set.ImgTarget) // XXX this could be computed once
+func MakeFitEdge(targetImage *imgut.Image, stats map[string]*sequence.SequenceStats) func(*imgut.Image) float64 {
+	// Compute edge detection
+	edgeKern := &imgut.ConvolutionMatrix{3, []float64{
+		0, 1, 0,
+		1, -4, 1,
+		0, 1, 0},
+	}
+	targEdge := imgut.ApplyConvolution(edgeKern, targetImage)
+	// Function to compute RMSE
+	rmseFit := MakeFitRMSE(targetImage)
+	return func(indImg *imgut.Image) float64 {
+		// Compute regular RMSE on this image
+		rmse := rmseFit(indImg)
+
+		imgEdge := imgut.ApplyConvolution(edgeKern, indImg)
 		// Compute distance between edges
 		edRmse := imgut.PixelRMSE(imgEdge, targEdge)
 
 		// Statistics on output values
-		if _, ok := ind.set.Statistics["sub-fit-plain"]; !ok {
-			ind.set.Statistics["sub-fit-plain"] = sequence.Create()
+		if _, ok := stats["sub-fit-plain"]; !ok {
+			stats["sub-fit-plain"] = sequence.Create()
 		}
-		ind.set.Statistics["sub-fit-plain"].Observe(rmse)
+		stats["sub-fit-plain"].Observe(rmse)
 
-		if _, ok := ind.set.Statistics["sub-fit-edged"]; !ok {
-			ind.set.Statistics["sub-fit-edged"] = sequence.Create()
+		if _, ok := stats["sub-fit-edged"]; !ok {
+			stats["sub-fit-edged"] = sequence.Create()
 		}
-		ind.set.Statistics["sub-fit-edged"].Observe(edRmse)
+		stats["sub-fit-edged"].Observe(edRmse)
 		// Weighted fitness
-		rmse *= edRmse
-		ind.fitness = ga.Fitness(rmse * edRmse)
+		return rmse * edRmse
 	}
-	return ga.Fitness(rmse)
+}
+
+func MakeFitSSIM(targetImage *imgut.Image) func(*imgut.Image) float64 {
+	return func(indImage *imgut.Image) float64 {
+		// Create temporary files
+		tarTemp, _ := ioutil.TempFile(".", "tarImg")
+		indTemp, _ := ioutil.TempFile(".", "indImg")
+		// Schedule for cleaning
+		defer os.Remove(tarTemp.Name())
+		defer os.Remove(indTemp.Name())
+		tarTemp.Close()
+		indTemp.Close()
+		// Save images to those files
+		targetImage.WritePNG(tarTemp.Name())
+		indImage.WritePNG(indTemp.Name())
+
+		// Compute the DSSIM value (dissimilarity)
+		cmd := exec.Command("./dssim.exe", tarTemp.Name(), indTemp.Name())
+		var out, stderr bytes.Buffer
+		cmd.Stdout = &out
+		cmd.Stderr = &stderr
+		err := cmd.Run()
+		if err != nil {
+			print("ERRORE CON LA CALL", stderr.String())
+			ooo, _ := cmd.CombinedOutput()
+			print("Output ")
+			print(ooo)
+			panic(err)
+		}
+		res := strings.Split(out.String(), "\t")[0]
+		fit, err := strconv.ParseFloat(res, 64)
+		if err != nil {
+			print("ERROR CON CONVERT")
+			panic(err)
+		}
+		return fit
+	}
+}
+
+// This method evaluates the current genotype and returns its fitness
+// without caching the results (i.e. fitnessIsValid is NOT read or written)
+func (ind *Individual) Evaluate() ga.Fitness {
+	ind.set.Draw(ind, ind.ImgTemp)                  // Draw individual
+	return ga.Fitness(ind.set.FitFunc(ind.ImgTemp)) // Evaluate fit
 }
 
 func (ind *Individual) FitnessValid() bool {

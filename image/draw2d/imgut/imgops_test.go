@@ -21,6 +21,7 @@ func TestCreate(t *testing.T) {
 	t.Log("Is the image loaded?")
 	if err != nil {
 		t.Error("Cannot load the image we just saved!! WTF?!?!")
+		t.FailNow()
 	}
 	t.Log("Image loaded correctly :)")
 	if PixelRMSE(img, img2) != 0 {
@@ -82,6 +83,7 @@ func TestConvolution(t *testing.T) {
 	img, err := Load(path)
 	if err != nil {
 		t.Error("Cannot load the image we just saved!! WTF?!?!")
+		t.FailNow()
 	}
 
 	img3 := ApplyConvolution(&cm3, img)
@@ -116,19 +118,38 @@ func TestComposition(t *testing.T) {
 	img3.WritePNG("img3.png")
 }
 
-func TestSliceDonversion(t *testing.T) {
+func TestSliceConversion(t *testing.T) {
 	//	 ToSlice(img *Image) []float64
 	//FromSlice(img *Image, data []float64) {
 	path := "lena.png"
 	t.Log("Loading sample image...")
 	img, err := Load(path)
 	if err != nil {
-		t.Error("Cannot load the image we just saved!! WTF?!?!")
+		t.Error("Cannot load the image!")
+		t.FailNow()
 	}
 	slice := ToSlice(img)
 	floats.AddConst(100, slice[0:128*128*4])
 	FromSlice(img, slice)
 	img.WritePNG("ciccia.png")
+}
+
+func TestSliceConversionChans(t *testing.T) {
+	//	 ToSlice(img *Image) []float64
+	//FromSlice(img *Image, data []float64) {
+	path := "lenac.png"
+	t.Log("Loading sample image...")
+	img, err := Load(path)
+	if err != nil {
+		t.Error("Cannot load the image!")
+		t.FailNow()
+	}
+	slice := ToSliceChans(img, "RGBA")
+	//floats.AddConst(100, slice[0:128*128*4])
+	FromSliceChans(img, "GR..", 255.0, slice)
+	img.WritePNG("cicciagr.png")
+	FromSliceChans(img, "R...", 255.0, slice)
+	img.WritePNG("cicciac.png")
 }
 
 // Bah, not working

@@ -278,44 +278,76 @@ func clamp8(v float64) uint8 {
 }
 
 func ToSlice(img *Image) []float64 {
+	return ToSliceChans(img, "RGBA")
+}
+
+func FromSlice(img *Image, data []float64) {
+	FromSliceChans(img, "RGBA", 255.0, data)
+}
+
+func ToSliceChans(img *Image, chans string) []float64 {
 	surf := img.Surf
 	cm := surf.ColorModel()
 	b := surf.Bounds()
 	minX, maxX := b.Min.X, b.Max.X
 	minY, maxY := b.Min.Y, b.Max.Y
-	data := make([]float64, (maxX-minX)*(maxY-minY)*4)
+	nc := len(chans)
+	data := make([]float64, (maxX-minX)*(maxY-minY)*nc)
 	k := 0
 	for i := b.Min.Y; i < b.Max.Y; i++ {
 		for j := b.Min.X; j < b.Max.X; j++ {
 			pix := surf.At(j, i)
 			col := cm.Convert(pix).(color.RGBA)
-			data[k+0] = float64(col.R)
-			data[k+1] = float64(col.G)
-			data[k+2] = float64(col.B)
-			data[k+3] = float64(col.A)
-			k += 4
+			for c := 0; c < nc; c++ {
+				switch chans[c] {
+				default:
+					data[k+c] = float64(col.R)
+				case 'g', 'G':
+					data[k+c] = float64(col.G)
+				case 'b', 'B':
+					data[k+c] = float64(col.B)
+				case 'a', 'A':
+					data[k+c] = float64(col.A)
+				}
+			}
+			k += nc
 		}
 	}
 	return data
 }
 
-func FromSlice(img *Image, data []float64) {
+// Convert a []float64 to an image, reading data with the format specified in
+// chans (e.g. RGBA, BGRA, BRG, RRR). If a component is not specified in the
+func FromSliceChans(img *Image, chans string, fill float64, data []float64) {
 	surf := img.Surf
 	cm := surf.ColorModel()
 	b := surf.Bounds()
 	minX, maxX := b.Min.X, b.Max.X
 	minY, maxY := b.Min.Y, b.Max.Y
 	k := 0
+	nc := len(chans)
+
+	const mk = 0xff
+	dfill := clamp8(fill) & mk
+
 	for i := minY; i < maxY; i++ {
 		for j := minX; j < maxX; j++ {
-			const mk = 0xff
-			outCol := color.RGBA{
-				clamp8(data[k+0]) & mk,
-				clamp8(data[k+1]) & mk,
-				clamp8(data[k+2]) & mk,
-				clamp8(data[k+3]) & mk,
+			outCol := color.RGBA{dfill, dfill, dfill, dfill}
+			for c := 0; c < nc; c++ {
+				switch chans[c] {
+				case 'r', 'R':
+					outCol.R = clamp8(data[k+c]) & mk
+				case 'g', 'G':
+					outCol.G = clamp8(data[k+c]) & mk
+				case 'b', 'B':
+					outCol.B = clamp8(data[k+c]) & mk
+				case 'a', 'A':
+					outCol.A = clamp8(data[k+c]) & mk
+				default:
+					// Just skip the channel
+				}
 			}
-			k += 4
+			k += nc
 			img.Surf.Set(j, i, cm.Convert(outCol))
 		}
 	}

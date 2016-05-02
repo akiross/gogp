@@ -385,11 +385,11 @@ func ArityDepthProbComputer(t *Node) func(*Node) float64 {
 	Traverse(t, ent, exi)
 
 	// Likelihood of internal nodes
-	inl := 1.0 / float64(len(depths)-nLeafs)
+	//inl := 1.0 / float64(len(depths)-nLeafs)
 
 	return func(r *Node) float64 {
 		if r.ChiCo() != 0 {
-			return float64(inl)
+			return 0.0 //float64(inl)
 		} else {
 			// Leafs have a probability proportional to
 			// their depth and to parent's arity
@@ -408,6 +408,40 @@ func ArityDepthProbComputer(t *Node) func(*Node) float64 {
 func UniformProbComputer(t *Node) func(*Node) float64 {
 	return func(r *Node) float64 {
 		return 1 // Same likelihood for every node
+	}
+}
+
+func UniformDepthProbComputer(t *Node) func(*Node) float64 {
+	// Count how many nodes are in each level
+	curDepth, maxDepth := 0, 0
+	depCount, depths := make(map[int]float64), make(map[Tree]int)
+
+	onEnter := func(n Tree) {
+		depths[n] = curDepth    // Save depth of this node
+		depCount[curDepth] += 1 // Increase number of nodes at this depth
+		// Save max depth
+		if curDepth > maxDepth {
+			maxDepth = curDepth
+		}
+		// Increase depth of children
+		curDepth++
+	}
+	onExit := func(n Tree) {
+		curDepth-- // Clean depth after visiting children
+	}
+	Traverse(t, onEnter, onExit)
+
+	// Compute probabilities by inverting counts
+	maxDepthInv := 1.0
+	if maxDepth > 0 {
+		maxDepthInv /= float64(maxDepth)
+	}
+	for k := range depCount {
+		depCount[k] = 1.0 / float64(depCount[k])
+	}
+	return func(r *Node) float64 {
+		// Node likelihood depends on depth and count at that depth
+		return maxDepthInv * depCount[depths[r]]
 	}
 }
 

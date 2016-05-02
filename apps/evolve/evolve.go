@@ -40,6 +40,12 @@ const (
 	mut_tree_node_repld  = "mut-tree-node-repld"
 	mut_tree_node_leaves = "mut-tree-node-leaves"
 
+	mut_lsubt_event       = "mut-lsubtree-event"
+	mut_lsubt_improv      = "mut-lsubtree-improv"
+	mut_lsubt_node_depth  = "mut-lsubt-node-depth"
+	mut_lsubt_node_repld  = "mut-lsubt-node-repld"
+	mut_lsubt_node_leaves = "mut-lsubt-node-leaves"
+
 	mut_area_event       = "mut-area-event"
 	mut_area_improv      = "mut-area-improv"
 	mut_area_node_depth  = "mut-area-node-depth"
@@ -52,7 +58,7 @@ const (
 	mut_count_multi = "mut-count-multiple"
 )
 
-func makeMultiMutation(s *base.Settings, multiMut, enbSin, enbNod, enbSub, enbAre, enbLoc bool) func(float64, *base.Individual) bool {
+func makeMultiMutation(s *base.Settings, multiMut, enbSin, enbNod, enbSub, enbAre, enbLsubt, enbLoc bool) func(float64, *base.Individual) bool {
 	// La mutazione a che profondità avviene?
 	// Quanto è profondo l'albero che vado a generare?
 	// Quanto è profondo l'albero che vado a sostituire?
@@ -92,16 +98,22 @@ func makeMultiMutation(s *base.Settings, multiMut, enbSin, enbNod, enbSub, enbAr
 		countInt(mut_area_node_repld, replDepth)
 		countBool(mut_area_node_leaves, isLeaf)
 	}
+	statFuncLevSubtr := func(nDepth, replDepth int, isLeaf bool) {
+		countInt(mut_lsubt_node_depth, nDepth)
+		countInt(mut_lsubt_node_repld, replDepth)
+		countBool(mut_lsubt_node_leaves, isLeaf)
+	}
 
 	singleMut := node.MakeTreeSingleMutation(s.Functionals, s.Terminals, statFuncSin) // func(*Node)
 	nodeMut := node.MakeTreeNodeMutation(s.Functionals, s.Terminals, statFuncNod)     // funcs, terms []gp.Primitive)// func(*Node) int {
 	subtrMut := node.MakeSubtreeMutation(s.MaxDepth, s.GenFunc, statFuncTree)
 	areaMut := node.MakeSubtreeMutationGuided(s.MaxDepth, s.GenFunc, node.ArityDepthProbComputer, statFuncArea)
+	subtLevelMut := node.MakeSubtreeMutationGuided(s.MaxDepth, s.GenFunc, node.UniformDepthProbComputer, statFuncLevSubtr)
 
 	const neighbSize = 5 // Neighborhood size for local search
 
 	return func(pMut float64, ind *base.Individual) bool {
-		perm := rand.Perm(5) // Randomly permutate the algorithms to pick
+		perm := rand.Perm(6) // Randomly permutate the algorithms to pick
 		evCount := 0         // Number of events (mutations performed)
 		for _, v := range perm {
 			event := rand.Float64() < pMut // Perform mutation?
@@ -157,6 +169,20 @@ func makeMultiMutation(s *base.Settings, multiMut, enbSin, enbNod, enbSub, enbAr
 						areaMut(ind.Node)
 						newFit := ind.Evaluate()
 						ind.CountEvent(mut_area_improv, s.BetterThan(newFit, fit))
+					}
+					if !multiMut {
+						return event
+					}
+				}
+			case 4:
+				if enbLsubt {
+					ind.CountEvent(mut_lsubt_event, event)
+					if event {
+						evCount++
+						fit := ind.Evaluate()
+						subtLevelMut(ind.Node)
+						newFit := ind.Evaluate()
+						ind.CountEvent(mut_lsubt_improv, s.BetterThan(newFit, fit))
 					}
 					if !multiMut {
 						return event
@@ -233,9 +259,13 @@ func Evolve(calcMaxDepth func(*imgut.Image) int, fun, ter []gp.Primitive, drawfu
 	fMutNod := fs.Bool("mn", false, "Enable Node Mutation")
 	fMutSub := fs.Bool("mt", false, "Enable Subtree Mutation")
 	fMutAre := fs.Bool("ma", false, "Enable Area Mutation")
+	fMutLsubt := fs.Bool("mlt", false, "Enable Level-Subtree Mutation")
 	fMutLoc := fs.Bool("ml", false, "Enable Local Mutation")
 
+	fSelect := fs.String("sel", "torun", "Pick selection method (tourn, rmad, irmad)")
+
 	fMultiMut := fs.Bool("mM", false, "Enable multiple mutations")
+	fFitness := fs.String("fit", "rmse", "Pick fitness function (rmse, mse, rmsed, ssim)")
 
 	//advStats := fs.Bool("stats", false, "Enable advanced statistics")
 	//nps := fs.Bool("nps", false, "Disable population snapshot (no-pop-snap)")
@@ -330,6 +360,10 @@ func Evolve(calcMaxDepth func(*imgut.Image) int, fun, ter []gp.Primitive, drawfu
 		countersKeys = append(countersKeys, mut_area_event, mut_area_improv, mut_area_node_leaves)
 		intCountersKeys = append(intCountersKeys, mut_area_node_depth, mut_area_node_repld)
 	}
+	if *fMutLsubt {
+		countersKeys = append(countersKeys, mut_lsubt_event, mut_lsubt_improv, mut_lsubt_improv)
+		intCountersKeys = append(intCountersKeys, mut_lsubt_node_depth, mut_lsubt_node_repld)
+	}
 	if *fMutLoc {
 		countersKeys = append(countersKeys, mut_local_event, mut_local_improv)
 		//		intCountersKeys = append(intCountersKeys, "mut_local_") TODO
@@ -374,7 +408,30 @@ func Evolve(calcMaxDepth func(*imgut.Image) int, fun, ter []gp.Primitive, drawfu
 
 	// Define the operators
 	settings.CrossOver = makeCrossover(&settings)
-	settings.Mutate = makeMultiMutation(&settings, *fMultiMut, *fMutSin, *fMutNod, *fMutSub, *fMutAre, *fMutLoc)
+	settings.Mutate = makeMultiMutation(&settings, *fMultiMut, *fMutSin, *fMutNod, *fMutSub, *fMutAre, *fMutLsubt, *fMutLoc)
+
+	// Fitness
+	if *fFitness == "mse" {
+		settings.FitFunc = base.MakeFitMSE(settings.ImgTarget)
+	} else if *fFitness == "rmsed" {
+		statsKeys = append(statsKeys, "fit-delta-rmse")
+		settings.FitFunc = base.MakeFitEdge(settings.ImgTarget, settings.Statistics)
+	} else if *fFitness == "ssim" {
+		settings.FitFunc = base.MakeFitSSIM(settings.ImgTarget)
+	} else {
+		statsKeys = append(statsKeys, "fit-delta-rmse")
+		settings.FitFunc = base.MakeFitRMSE(settings.ImgTarget)
+	}
+
+	// Selection
+	ts := *tournSize
+	if *fSelect == "rmad" {
+		settings.Select = base.MakeSelectRMAD(ts, ts*ts, settings.BetterThan)
+	} else if *fSelect == "irmad" {
+		settings.Select = base.MakeSelectIRMAD(ts, ts*ts, settings.BetterThan)
+	} else {
+		settings.Select = base.MakeSelectTourn(ts, settings.BetterThan)
+	}
 
 	// Seed rng
 	if !*quiet {
@@ -386,7 +443,7 @@ func Evolve(calcMaxDepth func(*imgut.Image) int, fun, ter []gp.Primitive, drawfu
 	// Build population
 	pop := new(base.Population)
 	pop.Set = &settings
-	pop.TournSize = *tournSize
+	//pop.TournSize = *tournSize
 	pop.Initialize(*popSize)
 
 	// Save initial population FIXME it's for debugging
@@ -427,8 +484,10 @@ func Evolve(calcMaxDepth func(*imgut.Image) int, fun, ter []gp.Primitive, drawfu
 		if g%*saveInterval == 0 {
 			snapName, snapPopName := sta.SaveSnapshot(pop, *quiet, countersKeys, statsKeys, intCountersKeys)
 			// Save best individual
-			pop.BestIndividual().Fitness()
-			pop.BestIndividual().(*base.Individual).ImgTemp.WritePNG(snapName)
+			if false {
+				pop.BestIndividual().Fitness()
+				pop.BestIndividual().(*base.Individual).ImgTemp.WritePNG(snapName)
+			}
 			// Save best individual code
 
 			//	pop.BestIndividual().(*base.Individual).Draw(settings.ImgTemp)
@@ -474,8 +533,10 @@ func Evolve(calcMaxDepth func(*imgut.Image) int, fun, ter []gp.Primitive, drawfu
 
 	snapName, snapPopName := sta.SaveSnapshot(pop, *quiet, countersKeys, statsKeys, intCountersKeys)
 	// Save best individual
-	pop.BestIndividual().Fitness()
-	pop.BestIndividual().(*base.Individual).ImgTemp.WritePNG(snapName)
+	if false {
+		pop.BestIndividual().Fitness()
+		pop.BestIndividual().(*base.Individual).ImgTemp.WritePNG(snapName)
+	}
 	//	pop.BestIndividual().(*base.Individual).Draw(settings.ImgTemp)
 	//	settings.ImgTemp.WritePNG(snapName)
 	// Save pop images

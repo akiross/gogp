@@ -111,7 +111,7 @@ func (stats *Stats) SaveSnapshot(pop *base.Population, quiet bool, cntKeys, staK
 		if stats.snapCount == 0 {
 			fmt.Print("Generation |  Tree depth (mean, stdev) |  Tree size (mean, stdev) |       Fitness (min, mean, max, stdev)       |  XO Improv (abs, rel) | MUT Improv (abs, rel) |    Time delay |")
 			for _, k := range staKeys {
-				fmt.Printf("%20s", k)
+				fmt.Printf(" %21s |", k)
 			}
 			for _, k := range cntKeys {
 				fmt.Printf(" %21s |", k)
@@ -133,7 +133,7 @@ func (stats *Stats) SaveSnapshot(pop *base.Population, quiet bool, cntKeys, staK
 
 		for _, k := range staKeys {
 			if sst, ok := pop.Set.Statistics[k]; ok {
-				fmt.Printf(" %6d %6d %6d %10.6g %10.6g |", sst.Variance.Count(), sst.Min.Get(), sst.Max.Get(), sst.PartialMean(), sst.PartialVarBessel())
+				fmt.Printf(" %6d %6g %6g %10.6g %10.6g |", sst.Variance.Count(), sst.Min.Get(), sst.Max.Get(), sst.PartialMean(), sst.PartialVarBessel())
 				sst.Clear()
 			} else {
 				fmt.Printf(" %6v %6v %6v %10v %10v |", "-", "-", "-", "-", "-")

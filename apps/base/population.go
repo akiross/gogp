@@ -14,10 +14,10 @@ func (e *ParamError) Error() string {
 }
 
 type Population struct {
-	best      *Individual
-	Pop       []*Individual
-	Set       *Settings
-	TournSize int
+	best *Individual
+	Pop  []*Individual
+	Set  *Settings
+	//TournSize int
 	//ga.MinProblem
 }
 
@@ -81,62 +81,125 @@ func (pop *Population) Initialize(n int) {
 	}
 }
 
-func (pop *Population) Select(n int, gen float32) ([]ga.Individual, error) {
-	selectionSize, tournSize := n, pop.TournSize
-	divSize := tournSize * tournSize // TODO this should be a parameter, or use a meaningful heuristic
+func MakeSelectTourn(tournSize int, betterFit func(a, b ga.Fitness) bool) func([]*Individual, int) []ga.Individual {
+	return func(oldPop []*Individual, selectionSize int) []ga.Individual {
+		// Slice to store the new population
+		newPop := make([]ga.Individual, selectionSize)
 
-	if (selectionSize < 1) || (tournSize < 1) {
-		return nil, &ParamError{"Cannot have selectionSize < 1 or tournSize < 1"}
-	}
-
-	// Slice to store the new population
-	newPop := make([]ga.Individual, selectionSize)
-
-	switch "Tournament" {
-	case "Tournament":
 		for i := 0; i < selectionSize; i++ {
 			// Sample random individuals for tournament
-			players := SampleRandom(pop.Pop, tournSize)
+			players := SampleRandom(oldPop, tournSize)
 			// Perform tournament using fitness
-			best := SampleTournament(players, pop.Set.BetterThan)
+			best := SampleTournament(players, betterFit)
 			// Save best to population
 			newPop[i] = best.Copy()
 		}
-	case "RMAD": // Relative Maximum Average Diversity
+
+		return newPop
+	}
+}
+
+func MakeSelectRMAD(tournSize, divSize int, betterFit func(a, b ga.Fitness) bool) func([]*Individual, int) []ga.Individual {
+	return func(oldPop []*Individual, selectionSize int) []ga.Individual {
+		// Slice to store the new population
+		newPop := make([]ga.Individual, selectionSize)
 		for i := 0; i < selectionSize; i++ {
 			// Sample some individuals using diversity tournament
 			sample := make([]*Individual, tournSize)
 			for i := range sample {
 				// Sample some random individuals for tournament
-				players := SampleRandom(pop.Pop, divSize)
+				players := SampleRandom(oldPop, divSize)
 				// Do fitness tournament and save winner to sample
 				sample[i] = SampleSMDTournament(players)
 			}
 			// Now perform tournament using fitness
-			best := SampleTournament(sample, pop.Set.BetterThan)
+			best := SampleTournament(sample, betterFit)
 			// Save best to population
 			newPop[i] = best.Copy()
 		}
-	case "IRMAD": // Inverse RMAD
+		return newPop
+	}
+}
+
+func MakeSelectIRMAD(tournSize, divSize int, betterFit func(a, b ga.Fitness) bool) func([]*Individual, int) []ga.Individual {
+	return func(oldPop []*Individual, selectionSize int) []ga.Individual {
+		// Slice to store the new population
+		newPop := make([]ga.Individual, selectionSize)
 		for i := 0; i < selectionSize; i++ {
 			// Sample some individuals using fitness tournament
 			sample := make([]*Individual, divSize)
 			for i := range sample {
 				// Sample some random individuals for tournament
-				players := SampleRandom(pop.Pop, tournSize)
+				players := SampleRandom(oldPop, tournSize)
 				// Do fitness tournament and save winner to sample
-				sample[i] = SampleTournament(players, pop.Set.BetterThan)
+				sample[i] = SampleTournament(players, betterFit)
 			}
 			// Now perform tournament using diversity
 			best := SampleSMDTournament(sample)
 			// Save best to population
 			newPop[i] = best.Copy()
 		}
-	default: // Error
-		panic("Invalid selection method!")
+		return newPop
+	}
+}
+
+func (pop *Population) Select(n int, gen float32) ([]ga.Individual, error) {
+	if n < 1 {
+		return nil, &ParamError{"Cannot have selectionSize < 1"}
 	}
 
-	return newPop, nil
+	return pop.Set.Select(pop.Pop, n), nil
+
+	/*
+		// Slice to store the new population
+		newPop := make([]ga.Individual, selectionSize)
+
+		switch "Tournament" {
+		case "Tournament":
+			for i := 0; i < selectionSize; i++ {
+				// Sample random individuals for tournament
+				players := SampleRandom(pop.Pop, tournSize)
+				// Perform tournament using fitness
+				best := SampleTournament(players, pop.Set.BetterThan)
+				// Save best to population
+				newPop[i] = best.Copy()
+			}
+		case "RMAD": // Relative Maximum Average Diversity
+			for i := 0; i < selectionSize; i++ {
+				// Sample some individuals using diversity tournament
+				sample := make([]*Individual, tournSize)
+				for i := range sample {
+					// Sample some random individuals for tournament
+					players := SampleRandom(pop.Pop, divSize)
+					// Do fitness tournament and save winner to sample
+					sample[i] = SampleSMDTournament(players)
+				}
+				// Now perform tournament using fitness
+				best := SampleTournament(sample, pop.Set.BetterThan)
+				// Save best to population
+				newPop[i] = best.Copy()
+			}
+		case "IRMAD": // Inverse RMAD
+			for i := 0; i < selectionSize; i++ {
+				// Sample some individuals using fitness tournament
+				sample := make([]*Individual, divSize)
+				for i := range sample {
+					// Sample some random individuals for tournament
+					players := SampleRandom(pop.Pop, tournSize)
+					// Do fitness tournament and save winner to sample
+					sample[i] = SampleTournament(players, pop.Set.BetterThan)
+				}
+				// Now perform tournament using diversity
+				best := SampleSMDTournament(sample)
+				// Save best to population
+				newPop[i] = best.Copy()
+			}
+		default: // Error
+			panic("Invalid selection method!")
+		}
+
+		return newPop, nil
+	*/
 }
 
 // Population sorting by fitness
